@@ -22,11 +22,13 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   const container = new Container();
   app.stage.addChild(container);
 
-  const backgroundTexture = await Assets.load("/images/Board.png");
+  const backgroundTexture = await Assets.load(BASEURL + "/images/Board.png");
   const backGroundSprite = Sprite.from(backgroundTexture);
   backGroundSprite.scale.set(0.5, 0.5);
   container.addChild(backGroundSprite);
 
   container.pivot.set(container.width / 2, container.height / 2);
   container.position.set(app.screen.width / 2, app.screen.height / 2);
+
+  // test code for simple piece
 })();

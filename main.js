@@ -2,9 +2,9 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 
 // TODO:
 // add single piece
-//  - piece moving down (left or right)
-//  - ability to rotate (up)
-//  - speed up button (down)
+//  - piece moving down (left or right) => done
+//  - ability to rotate (up) => Done
+//  - speed up button (down) => Done
 //  - ability to jump down instantly
 //    - with shadow piece to showcase where it will land
 
@@ -41,9 +41,11 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 
   // Top and Bottom x of the board
   const BOARDPIECEHEIGHT = board.height / 22;
-  const TOPX = 0;
+  const BOARDPIECEWIDTH = board.width / 12;
   const BOTTOMX = board.height - BOARDPIECEHEIGHT * 3; // board.height - 3 board pieces
   const MIDDLEX = board.width / 2;
+  const LEFTBORDER = board.width;
+  let SPEED = 1;
 
   // test code for simple piece
   const piece1Texture = await Assets.load(BASEURL + "/images/I.png");
@@ -52,18 +54,74 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 
   // piece1Sprite.rotation = Math.PI / 4;
   piece1Sprite.anchor.set(0.5, 0);
-  piece1Sprite.x = board.width / 2;
+  piece1Sprite.x = MIDDLEX;
+
+  // Add keyboard input
+  const KEYS = {};
+  window.addEventListener("keydown", (e) => {
+    if (
+      e.code == "ArrowRight" ||
+      e.code == "ArrowLeft" ||
+      e.code == "ArrowDown" ||
+      e.code == "Space"
+    )
+      KEYS[e.code] = true;
+  });
+  window.addEventListener("keyup", (e) => {
+    if (e.code == "ArrowUp") {
+      KEYS[e.code] = true;
+    } else {
+      KEYS[e.code] = false;
+    }
+  });
+  window.addEventListener("keyup", (e) => {
+    if (e.code == "ArrowDown") {
+      SPEED = 1;
+      KEYS["ArrowDown"] = false;
+    }
+  });
+
+  app.ticker.add(() => {
+    if (KEYS["ArrowUp"]) {
+      piece1Sprite.angle = piece1Sprite.angle + 90;
+      KEYS["ArrowUp"] = false;
+    }
+    if (KEYS["ArrowLeft"]) {
+      if (piece1Sprite.x > 3 * BOARDPIECEWIDTH) {
+        // greater than the boarder piece,
+        piece1Sprite.x -= BOARDPIECEWIDTH;
+      }
+      KEYS["ArrowLeft"] = false;
+    }
+    if (KEYS["ArrowRight"]) {
+      console.log(LEFTBORDER - BOARDPIECEWIDTH, piece1Sprite.x);
+      if (piece1Sprite.x < LEFTBORDER - BOARDPIECEWIDTH * 3) {
+        // greater than the boarder piece,
+        piece1Sprite.x += BOARDPIECEWIDTH;
+      }
+      KEYS["ArrowRight"] = false;
+    }
+    if (KEYS["ArrowDown"]) {
+      SPEED = 10;
+      KEYS["ArrowDown"] = false;
+    }
+    if (KEYS["Space"]) {
+      piece1Sprite.y = BOTTOMX + BOARDPIECEHEIGHT;
+    }
+  });
+
   board.addChild(piece1Sprite);
 
   let dropCounter = 0;
-  const dropInterval = 30; // frames before piece moves down (~0.5s at 60fps)
+  const dropInterval = 60; // frames before piece moves down (~1s at 60fps)
   console.log(piece1Sprite);
+
   app.ticker.add((delta) => {
-    dropCounter += delta.deltaTime;
+    dropCounter += delta.deltaTime * SPEED;
     if (dropCounter >= dropInterval && piece1Sprite.position.y <= BOTTOMX) {
       piece1Sprite.position.y += BOARDPIECEHEIGHT;
       dropCounter = 0; // reset counter
-      console.log(piece1Sprite.position.y);
+      // console.log(piece1Sprite.position.y);
     }
   });
 })();

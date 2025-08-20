@@ -8,7 +8,9 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 //  - ability to jump down instantly => Done
 //    - with shadow piece to showcase where it will land
 //  - Add all pieces
-//  - Create a system that works with the current piece
+//  - Create a system that works with the current piece => done
+//  - drop pieces and create new pieces
+//  - our 4 x 1 piece falls short of our left border by one piece
 
 (async () => {
   const app = new Application();
@@ -44,7 +46,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   // Top and Bottom x of the board
   const BOARDPIECEHEIGHT = board.height / 22;
   const BOARDPIECEWIDTH = board.width / 12;
-  const BOTTOMX = board.height - BOARDPIECEHEIGHT * 3; // board.height - 3 board pieces
+  const BOTTOMX = board.height - BOARDPIECEHEIGHT * 3; // board.height - 2 board pieces
   const MIDDLEX = board.width / 2;
   const LEFTBORDER = board.width;
   let SPEED = 1;
@@ -57,9 +59,11 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   //  Load all the peices
   // let pieces = [iterable[Symbol.iterator: self.anchor[0], self.anchor[1];
   let pieces = [];
+  let textures = [];
   for (let i = 0; i < 7; i++) {
     console.log(BASEURL + `images/piece${i}.png`);
     const pieceTexture = await Assets.load(BASEURL + `images/piece${i}.png`);
+    textures.push(pieceTexture);
     const pieceSprite = Sprite.from(pieceTexture);
     pieceSprite.scale.set(0.5);
     pieceSprite.id = "piece" + i;
@@ -131,7 +135,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     }
     if (KEYS["ArrowRight"]) {
       console.log(LEFTBORDER - BOARDPIECEWIDTH, currentSprite.x);
-      if (currentSprite.x < LEFTBORDER - BOARDPIECEWIDTH * 3) {
+      if (currentSprite.x < LEFTBORDER - BOARDPIECEWIDTH * 2) {
         // greater than the boarder piece,
         currentSprite.x += BOARDPIECEWIDTH;
       }
@@ -157,16 +161,40 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       if (dropCounter >= dropInterval && piece.position.y <= BOTTOMX) {
         piece.position.y += BOARDPIECEHEIGHT;
         dropCounter = 0; // reset counter
-        // console.log(piece1Sprite.position.y);
       }
     });
   }
 
-  // dropPiece(currentSprite);
-  function reachBottom(piece) {
-    if (piece.position.y == BOTTOMX) {
+  dropPiece(currentSprite);
+
+  function cloneSprite(index = Math.floor(Math.random() * 7)) {
+    let texture = textures[index];
+    let template = pieces[index];
+    const s = new Sprite(texture);
+
+    s.anchor.set(template.anchor.x, template.anchor.y);
+    s.scale.set(template.scale.x, template.scale.y);
+    s.x = MIDDLEX;
+    console.log(s);
+    return s;
+  }
+
+  let bottomReached = false;
+  function pieceLoop() {
+    if (currentSprite.position.y == BOTTOMX && !bottomReached) {
+      console.log("reachedbottom");
       app.ticker.remove(pieceControls);
+      // currentSprite = cloneSprite(pieces[Math.floor(Math.random() * 7)]);
+      currentSprite = cloneSprite();
+      board.addChild(currentSprite);
+      app.ticker.add(pieceControls);
+      dropPiece(currentSprite);
+      bottomReached = true;
+    }
+    if (currentSprite.y <= BOTTOMX) {
+      bottomReached = false;
     }
   }
-  reachBottom(currentSprite);
+
+  app.ticker.add(pieceLoop);
 })();

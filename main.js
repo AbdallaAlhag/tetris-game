@@ -5,8 +5,10 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 //  - piece moving down (left or right) => done
 //  - ability to rotate (up) => Done
 //  - speed up button (down) => Done
-//  - ability to jump down instantly
+//  - ability to jump down instantly => Done
 //    - with shadow piece to showcase where it will land
+//  - Add all pieces
+//  - Create a system that works with the current piece
 
 (async () => {
   const app = new Application();
@@ -48,13 +50,47 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   let SPEED = 1;
 
   // test code for simple piece
-  const piece1Texture = await Assets.load(BASEURL + "/images/I.png");
-  const piece1Sprite = Sprite.from(piece1Texture);
-  piece1Sprite.scale.set(0.5);
+  // const piece1Texture = await Assets.load(BASEURL + "/images/piece1.png");
+  // const piece1Sprite = Sprite.from(piece1Texture);
+  // piece1Sprite.scale.set(0.5);
 
-  // piece1Sprite.rotation = Math.PI / 4;
-  piece1Sprite.anchor.set(0.5, 0);
-  piece1Sprite.x = MIDDLEX;
+  //  Load all the peices
+  // let pieces = [iterable[Symbol.iterator: self.anchor[0], self.anchor[1];
+  let pieces = [];
+  for (let i = 0; i < 7; i++) {
+    console.log(BASEURL + `images/piece${i}.png`);
+    const pieceTexture = await Assets.load(BASEURL + `images/piece${i}.png`);
+    const pieceSprite = Sprite.from(pieceTexture);
+    pieceSprite.scale.set(0.5);
+    pieceSprite.id = "piece" + i;
+    pieceSprite.x = MIDDLEX;
+    if ([1, 2, 4, 5, 6].includes(i)) {
+      pieceSprite.anchor.set(2 / 3, 1 / 2); // blocks [3,2]
+      pieces.push(pieceSprite);
+    } else if (i == 0) {
+      pieceSprite.anchor.set(1 / 2, 0); // block [4,1]
+      pieces.push(pieceSprite);
+    } else {
+      pieceSprite.anchor.set(1 / 2, 1 / 2); // block [2,3]
+      pieces.push(pieceSprite);
+    }
+  }
+
+  // block represents x,y of our block
+  // pieces[6].block = [3, 2]; // sizgaz block top left, bottom right
+  // // anchor = (2/3, 1/2)
+  // pieces[5].block = [3, 2]; // crown block
+  // pieces[4].block = [3, 2]; // sigzag block top right, bottom left
+  // pieces[3].block = [2, 2]; // square block
+  // // anchor = (0.5, 0.5)
+  // pieces[2].block = [3, 2]; // L block right side
+  // pieces[1].block = [3, 2]; // L block left side
+  // pieces[0].block = [4, 1]; // I block
+  // //anchor = (0.5, 0)
+
+  console.log(pieces);
+  let currentSprite = pieces[0];
+  console.log(currentSprite);
 
   // Add keyboard input
   const KEYS = {};
@@ -81,23 +117,23 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     }
   });
 
-  app.ticker.add(() => {
+  function pieceControls() {
     if (KEYS["ArrowUp"]) {
-      piece1Sprite.angle = piece1Sprite.angle + 90;
+      currentSprite.angle = currentSprite.angle + 90;
       KEYS["ArrowUp"] = false;
     }
     if (KEYS["ArrowLeft"]) {
-      if (piece1Sprite.x > 3 * BOARDPIECEWIDTH) {
+      if (currentSprite.x > 3 * BOARDPIECEWIDTH) {
         // greater than the boarder piece,
-        piece1Sprite.x -= BOARDPIECEWIDTH;
+        currentSprite.x -= BOARDPIECEWIDTH;
       }
       KEYS["ArrowLeft"] = false;
     }
     if (KEYS["ArrowRight"]) {
-      console.log(LEFTBORDER - BOARDPIECEWIDTH, piece1Sprite.x);
-      if (piece1Sprite.x < LEFTBORDER - BOARDPIECEWIDTH * 3) {
+      console.log(LEFTBORDER - BOARDPIECEWIDTH, currentSprite.x);
+      if (currentSprite.x < LEFTBORDER - BOARDPIECEWIDTH * 3) {
         // greater than the boarder piece,
-        piece1Sprite.x += BOARDPIECEWIDTH;
+        currentSprite.x += BOARDPIECEWIDTH;
       }
       KEYS["ArrowRight"] = false;
     }
@@ -106,22 +142,31 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       KEYS["ArrowDown"] = false;
     }
     if (KEYS["Space"]) {
-      piece1Sprite.y = BOTTOMX + BOARDPIECEHEIGHT;
+      currentSprite.y = BOTTOMX + BOARDPIECEHEIGHT;
     }
-  });
+  }
+  app.ticker.add(pieceControls);
 
-  board.addChild(piece1Sprite);
+  board.addChild(currentSprite);
+  function dropPiece(piece) {
+    let dropCounter = 0;
+    const dropInterval = 60; // frames before piece moves down (~1s at 60fps)
 
-  let dropCounter = 0;
-  const dropInterval = 60; // frames before piece moves down (~1s at 60fps)
-  console.log(piece1Sprite);
+    app.ticker.add((delta) => {
+      dropCounter += delta.deltaTime * SPEED;
+      if (dropCounter >= dropInterval && piece.position.y <= BOTTOMX) {
+        piece.position.y += BOARDPIECEHEIGHT;
+        dropCounter = 0; // reset counter
+        // console.log(piece1Sprite.position.y);
+      }
+    });
+  }
 
-  app.ticker.add((delta) => {
-    dropCounter += delta.deltaTime * SPEED;
-    if (dropCounter >= dropInterval && piece1Sprite.position.y <= BOTTOMX) {
-      piece1Sprite.position.y += BOARDPIECEHEIGHT;
-      dropCounter = 0; // reset counter
-      // console.log(piece1Sprite.position.y);
+  // dropPiece(currentSprite);
+  function reachBottom(piece) {
+    if (piece.position.y == BOTTOMX) {
+      app.ticker.remove(pieceControls);
     }
-  });
+  }
+  reachBottom(currentSprite);
 })();

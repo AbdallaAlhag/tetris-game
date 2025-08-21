@@ -7,10 +7,16 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 //  - speed up button (down) => Done
 //  - ability to jump down instantly => Done
 //    - with shadow piece to showcase where it will land
-//  - Add all pieces
+//  - Add all pieces => done
 //  - Create a system that works with the current piece => done
-//  - drop pieces and create new pieces
-//  - our 4 x 1 piece falls short of our left border by one piece
+//  - drop pieces and create new pieces => done
+//  - add collision to blocks => done
+//    - collision does not work with shape but border, fix
+//  - bugs:
+//    - our 4 x 1 piece falls short of our bottom and left border by one piece
+//    - 2x2 piece is one off border
+//    - space drop bugged, doesn't continue the loop
+//    - collision bugged on 4 x 1 piece
 
 (async () => {
   const app = new Application();
@@ -38,6 +44,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   const backgroundTexture = await Assets.load(BASEURL + "/images/Board.png");
   const backGroundSprite = Sprite.from(backgroundTexture);
   backGroundSprite.scale.set(0.5, 0.5);
+  backGroundSprite.id = "background";
   board.addChild(backGroundSprite);
 
   board.pivot.set(board.width / 2, board.height / 2);
@@ -46,7 +53,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   // Top and Bottom x of the board
   const BOARDPIECEHEIGHT = board.height / 22;
   const BOARDPIECEWIDTH = board.width / 12;
-  const BOTTOMX = board.height - BOARDPIECEHEIGHT * 3; // board.height - 2 board pieces
+  const BOTTOMX = board.height - BOARDPIECEHEIGHT * 2; // board.height - 2 board pieces
   const MIDDLEX = board.width / 2;
   const LEFTBORDER = board.width;
   let SPEED = 1;
@@ -61,12 +68,12 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   let pieces = [];
   let textures = [];
   for (let i = 0; i < 7; i++) {
-    console.log(BASEURL + `images/piece${i}.png`);
+    // console.log(BASEURL + `images/piece${i}.png`);
     const pieceTexture = await Assets.load(BASEURL + `images/piece${i}.png`);
     textures.push(pieceTexture);
     const pieceSprite = Sprite.from(pieceTexture);
     pieceSprite.scale.set(0.5);
-    pieceSprite.id = "piece" + i;
+    pieceSprite.id = "piece";
     pieceSprite.x = MIDDLEX;
     if ([1, 2, 4, 5, 6].includes(i)) {
       pieceSprite.anchor.set(2 / 3, 1 / 2); // blocks [3,2]
@@ -92,9 +99,9 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   // pieces[0].block = [4, 1]; // I block
   // //anchor = (0.5, 0)
 
-  console.log(pieces);
+  // console.log(pieces);
   let currentSprite = pieces[0];
-  console.log(currentSprite);
+  // console.log(currentSprite);
 
   // Add keyboard input
   const KEYS = {};
@@ -134,7 +141,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       KEYS["ArrowLeft"] = false;
     }
     if (KEYS["ArrowRight"]) {
-      console.log(LEFTBORDER - BOARDPIECEWIDTH, currentSprite.x);
+      // console.log(LEFTBORDER - BOARDPIECEWIDTH, currentSprite.x);
       if (currentSprite.x < LEFTBORDER - BOARDPIECEWIDTH * 2) {
         // greater than the boarder piece,
         currentSprite.x += BOARDPIECEWIDTH;
@@ -152,20 +159,32 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   app.ticker.add(pieceControls);
 
   board.addChild(currentSprite);
-  function dropPiece(piece) {
+
+  let bottomReached = false;
+
+  function dropPiece() {
     let dropCounter = 0;
     const dropInterval = 60; // frames before piece moves down (~1s at 60fps)
 
-    app.ticker.add((delta) => {
+    const dropFunction = (delta) => {
       dropCounter += delta.deltaTime * SPEED;
-      if (dropCounter >= dropInterval && piece.position.y <= BOTTOMX) {
-        piece.position.y += BOARDPIECEHEIGHT;
+
+      if (bottomReached) {
+        dropCounter = 0;
+        console.log("remove drop");
+        app.ticker.remove(dropFunction());
+        return;
+      }
+      if (dropCounter >= dropInterval && currentSprite.position.y <= BOTTOMX) {
+        currentSprite.position.y += BOARDPIECEHEIGHT;
         dropCounter = 0; // reset counter
       }
-    });
+    };
+
+    app.ticker.add(dropFunction);
   }
 
-  dropPiece(currentSprite);
+  dropPiece();
 
   function cloneSprite(index = Math.floor(Math.random() * 7)) {
     let texture = textures[index];
@@ -175,21 +194,68 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     s.anchor.set(template.anchor.x, template.anchor.y);
     s.scale.set(template.scale.x, template.scale.y);
     s.x = MIDDLEX;
-    console.log(s);
+    s.id = "piece";
+    // console.log(s);
     return s;
   }
 
-  let bottomReached = false;
+  // cal this function on every sprite in our container but the background, probably want to give it an id of 'background'
+  function collision(lockedSprite) {
+    // we have to find top border of sprites on board
+    // and then bottom borders of currentSprite and see if they share the same
+    // y position
+    let locked = lockedSprite.getBounds();
+    let current = currentSprite.getBounds();
+
+    let lockedLeft = locked.x - lockedSprite.anchor.x * locked.width;
+    let lockedRight = lockedLeft + locked.width;
+
+    let currentLeft = current.x - currentSprite.anchor.x * current.width;
+    let currentRight = currentLeft + current.width;
+
+    // current y + width = bottom and locked.y is probbaly top but anchor might play a role
+    if (
+      current.y + current.height * currentSprite.anchor.y ==
+        locked.y - locked.height * lockedSprite.anchor.y &&
+      !(currentLeft >= lockedRight || currentRight <= lockedLeft)
+    ) {
+      console.log("collision detected");
+      return false;
+    }
+    return true;
+  }
+  console.log(board.children);
   function pieceLoop() {
-    if (currentSprite.position.y == BOTTOMX && !bottomReached) {
+    if (
+      currentSprite.position.y == BOTTOMX ||
+      !(
+        board.children.toReversed().every((e, index) => {
+          // test on every sprite but background and last sprite which is current
+          if (e.id === "background" || index === 0) {
+            return true; // skip these
+          }
+          console.log("checking");
+          return collision(e);
+        }) && !bottomReached
+      )
+    ) {
       console.log("reachedbottom");
       app.ticker.remove(pieceControls);
       // currentSprite = cloneSprite(pieces[Math.floor(Math.random() * 7)]);
       currentSprite = cloneSprite();
       board.addChild(currentSprite);
-      app.ticker.add(pieceControls);
-      dropPiece(currentSprite);
       bottomReached = true;
+      app.ticker.add(pieceControls);
+      // dropPiece(); // stacks app.ticker()
+
+      // console.log(app.ticker);
+      // let listener = app.ticker._head;
+      // let count = 0;
+      // while (listener) {
+      //   count++;
+      //   listener = listener.next;
+      // }
+      // console.log(count);
     }
     if (currentSprite.y <= BOTTOMX) {
       bottomReached = false;

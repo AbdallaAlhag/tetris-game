@@ -11,12 +11,13 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 //  - Create a system that works with the current piece => done
 //  - drop pieces and create new pieces => done
 //  - add collision to blocks => done
-//    - collision does not work with shape but border, fix
+//  - add collision based on shape with grid map => in progress
 //  - bugs:
-//    - our 4 x 1 piece falls short of our bottom and left border by one piece
-//    - 2x2 piece is one off border
+//    - our 4 x 1 piece falls short of our bottom and left border by one piece => delt with
+//    - 2x2 piece is one off border => delt with
 //    - space drop bugged, doesn't continue the loop
 //    - collision bugged on 4 x 1 piece
+//    - rotation on left border is one shy while rotation on right border is one over.
 
 (async () => {
   const app = new Application();
@@ -67,6 +68,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   // let pieces = [iterable[Symbol.iterator: self.anchor[0], self.anchor[1];
   let pieces = [];
   let textures = [];
+  let currentRotation = 1;
   for (let i = 0; i < 7; i++) {
     // console.log(BASEURL + `images/piece${i}.png`);
     const pieceTexture = await Assets.load(BASEURL + `images/piece${i}.png`);
@@ -99,8 +101,66 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   // pieces[0].block = [4, 1]; // I block
   // //anchor = (0.5, 0)
 
+  const I = [
+    [0, 0, 0, 0],
+    [1, 1, 1, 1],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+  ];
+  const O = [
+    [0, 1, 1, 0],
+    [0, 1, 1, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+  ];
+  const T = [
+    [0, 1, 0, 0],
+    [1, 1, 1, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+  ];
+  const L = [
+    [0, 0, 1, 0],
+    [1, 1, 1, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+  ];
+  const J = [
+    [1, 0, 0, 0],
+    [1, 1, 1, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+  ];
+  const S = [
+    [0, 1, 1, 0],
+    [1, 1, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+  ];
+  const Z = [
+    [1, 1, 0, 0],
+    [0, 1, 1, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+  ];
+
+  const pieceGrids = [I, J, L, O, S, T, Z];
+  let boardMap = [];
+  // create board that represents our board with borders set up as -1
+  for (let i = 0; i < 22; i++) {
+    boardMap[i] = [];
+    for (let j = 0; j < 12; j++) {
+      if (i == 0 || i == 21 || j == 0 || j == 11) {
+        boardMap[i][j] = -1;
+      } else {
+        boardMap[i][j] = 0;
+      }
+    }
+  }
+  console.log(boardMap);
   // console.log(pieces);
-  let currentSprite = pieces[0];
+  let currentIndex = 0;
+  let currentSprite = pieces[currentIndex];
   // console.log(currentSprite);
 
   // Add keyboard input
@@ -131,10 +191,13 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   function pieceControls() {
     if (KEYS["ArrowUp"]) {
       currentSprite.angle = currentSprite.angle + 90;
+      currentRotation = ((currentRotation + 1) % 4) + 1; // loop rotation 1 to 4 with 1 being original position
       KEYS["ArrowUp"] = false;
     }
     if (KEYS["ArrowLeft"]) {
-      if (currentSprite.x > 3 * BOARDPIECEWIDTH) {
+      let spriteLeft =
+        currentSprite.x - currentSprite.anchor.x * currentSprite.width;
+      if (spriteLeft > BOARDPIECEWIDTH) {
         // greater than the boarder piece,
         currentSprite.x -= BOARDPIECEWIDTH;
       }
@@ -142,7 +205,9 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     }
     if (KEYS["ArrowRight"]) {
       // console.log(LEFTBORDER - BOARDPIECEWIDTH, currentSprite.x);
-      if (currentSprite.x < LEFTBORDER - BOARDPIECEWIDTH * 2) {
+      let spriteRight =
+        currentSprite.x + (1 - currentSprite.anchor.x) * currentSprite.width;
+      if (spriteRight < LEFTBORDER - BOARDPIECEWIDTH) {
         // greater than the boarder piece,
         currentSprite.x += BOARDPIECEWIDTH;
       }
@@ -199,50 +264,150 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     return s;
   }
 
-  // cal this function on every sprite in our container but the background, probably want to give it an id of 'background'
-  function collision(lockedSprite) {
-    // we have to find top border of sprites on board
-    // and then bottom borders of currentSprite and see if they share the same
-    // y position
-    let locked = lockedSprite.getBounds();
-    let current = currentSprite.getBounds();
+  // // cal this function on every sprite in our container but the background, probably want to give it an id of 'background'
+  // function borderCollision(lockedSprite) {
+  //   // we have to find top border of sprites on board
+  //   // and then bottom borders of currentSprite and see if they share the same
+  //   // y position
+  //   let locked = lockedSprite.getBounds();
+  //   let current = currentSprite.getBounds();
+  //
+  //   let lockedLeft = locked.x - lockedSprite.anchor.x * locked.width;
+  //   let lockedRight = lockedLeft + locked.width;
+  //
+  //   let currentLeft = current.x - currentSprite.anchor.x * current.width;
+  //   let currentRight = currentLeft + current.width;
+  //
+  //   // current y + width = bottom and locked.y is probbaly top but anchor might play a role
+  //   if (
+  //     current.y + current.height * currentSprite.anchor.y ==
+  //       locked.y - locked.height * lockedSprite.anchor.y &&
+  //     !(currentLeft >= lockedRight || currentRight <= lockedLeft)
+  //   ) {
+  //     console.log("collision detected");
+  //     return false;
+  //   }
+  //   return true;
+  // }
 
-    let lockedLeft = locked.x - lockedSprite.anchor.x * locked.width;
-    let lockedRight = lockedLeft + locked.width;
+  // grab the blockMatrix from our pieceGrids array;
+  // we can use the boardGrid and currentSprite to get x and y position.
 
-    let currentLeft = current.x - currentSprite.anchor.x * current.width;
-    let currentRight = currentLeft + current.width;
+  // we can check collision for bottom or for border
+  function gridCollision(blockMatrix) {
+    let currentBlockMatrix = blockMatrix;
+    console.log("reached collision check");
 
-    // current y + width = bottom and locked.y is probbaly top but anchor might play a role
-    if (
-      current.y + current.height * currentSprite.anchor.y ==
-        locked.y - locked.height * lockedSprite.anchor.y &&
-      !(currentLeft >= lockedRight || currentRight <= lockedLeft)
-    ) {
-      console.log("collision detected");
-      return false;
+    // grab the position from the board and convert it to fit our boardMap array,
+    // most likely position / 12 or 22 rounded up i asssume
+    // I think our position is expected to be upper left to correctly work. might have to do some
+    // math to represents our anchor correclty but upper left is probably best so we should
+    // relocate upper ancho temporarily
+
+    // posX and posY should be upper left corner of our block
+    let posX = Math.round(
+      (currentSprite.position.x -
+        currentSprite.anchor.x * currentSprite.width) /
+        BOARDPIECEWIDTH,
+    );
+    let posY = Math.round(
+      (currentSprite.position.y -
+        currentSprite.anchor.y * currentSprite.width) /
+        BOARDPIECEHEIGHT,
+    );
+    // console.log(
+    //   `sprite position x: ${currentSprite.position.x} and sprite position y: ${currentSprite.position.y}`,
+    // );
+    // console.log(`position x: ${posX} and position y: ${posY}`);
+    // app.ticker.stop();
+    // our current block based on its current rotation, 1 = no rotation
+    for (let i = 0; i < currentRotation - 1; i++) {
+      currentBlockMatrix = rotateClockWise(blockMatrix);
     }
-    return true;
-  }
-  console.log(board.children);
-  function pieceLoop() {
-    if (
-      currentSprite.position.y == BOTTOMX ||
-      !(
-        board.children.toReversed().every((e, index) => {
-          // test on every sprite but background and last sprite which is current
-          if (e.id === "background" || index === 0) {
-            return true; // skip these
+    // console.log(currentBlockMatrix);
+    // app.ticker.stop();
+    function addPieceToBoard() {
+      for (let row = 0; row < currentBlockMatrix.length; row++) {
+        for (let col = 0; col < currentBlockMatrix[row].length; col++) {
+          // check if our blockMatrix position is filled
+          if (currentBlockMatrix[row][col]) {
+            const boardX = posX + col;
+            const boardY = posY + row;
+            boardMap[boardX][boardY] = 1;
           }
-          console.log("checking");
-          return collision(e);
-        }) && !bottomReached
-      )
+        }
+      }
+      console.log(boardMap);
+      app.ticker.stop();
+    }
+
+    for (let row = 0; row < currentBlockMatrix.length; row++) {
+      for (let col = 0; col < currentBlockMatrix[row].length; col++) {
+        // check if our blockMatrix position is filled
+
+        if (currentBlockMatrix[row][col]) {
+          const boardX = posX + col;
+          const boardY = posY + row;
+
+          // detect wall/ bottom collision (going to move bottom collision since piece does not stop at wall collision)
+          // good wall detection but maybe we remove it
+          if (
+            boardX < 0 ||
+            boardX >= boardMap[0].length
+            // || boardY >= boardMap.length
+          ) {
+            return true;
+          }
+          // check if filled cell collides or bottom collision
+          // dont check it if piece is partial on top of the board for respawn
+          if (
+            (boardY >= 0 && boardMap[boardY][boardX]) ||
+            boardY >= boardMap.length - 1
+          ) {
+            addPieceToBoard();
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+  function rotateClockWise(mat) {
+    const n = mat.length;
+
+    const res = Array.from({ length: n }, () => Array(n).fill(0));
+
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        res[j][n - 1 - i] = mat[i][j];
+      }
+    }
+    return res;
+  }
+
+  function pieceLoop() {
+    let randomIndex = Math.floor(Math.random() * 7);
+    if (
+      // currentSprite.position.y == BOTTOMX ||
+      // !(
+      //   board.children.toReversed().every((e, index) => {
+      //     // test on every sprite but background and last sprite which is current
+      //     if (e.id === "background" || index === 0) {
+      //       return true; // skip these
+      //     }
+      //     console.log("checking");
+      //     return borderCollision(e);
+      //   }) && !bottomReached
+      // )
+      gridCollision(pieceGrids[currentIndex])
     ) {
       console.log("reachedbottom");
       app.ticker.remove(pieceControls);
       // currentSprite = cloneSprite(pieces[Math.floor(Math.random() * 7)]);
-      currentSprite = cloneSprite();
+      currentSprite = cloneSprite(randomIndex);
+      currentRotation = 1;
+      currentIndex = randomIndex;
       board.addChild(currentSprite);
       bottomReached = true;
       app.ticker.add(pieceControls);

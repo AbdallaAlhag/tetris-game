@@ -30,11 +30,28 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     // resolution: window.devicePixelRatio || 1,
   });
   app.canvas.style.position = "absolute";
+  app.canvas.style.zIndex = "0";
   document.body.appendChild(app.canvas);
   // need base url to make sure everything works locally and in production
   const BASEURL = import.meta.env.BASE_URL;
   console.log(`Base Url: ${BASEURL}`);
 
+  // freeze button temp button
+  const button = document.createElement("button");
+  button.addEventListener("click", () => {
+    app.ticker.stop();
+  });
+  button.textContent = "Freeze";
+  // quick styles
+  button.style.position = "absolute";
+  button.style.padding = "10px 20px";
+  button.style.backgroundColor = "#3498db";
+  button.style.color = "white";
+  button.style.border = "none";
+  button.style.borderRadius = "5px";
+  button.style.cursor = "pointer";
+  button.style.zIndex = "1000"; // higher than the Pixi canvas
+  document.body.appendChild(button);
   // single block is 64 x 64 pixels,
   // board is 768 x 1408 pixels, which is 12 pieces width and 22 pieces height
   // but board is also 10 width and 20 high without border
@@ -148,7 +165,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   let boardMap = [];
   // create board that represents our board with borders set up as -1
   for (let i = 0; i < 22; i++) {
-    boardMap[i] = [];
+    boardMap[i] = Array(12);
     for (let j = 0; j < 12; j++) {
       if (i == 0 || i == 21 || j == 0 || j == 11) {
         boardMap[i][j] = -1;
@@ -159,7 +176,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   }
   console.log(boardMap);
   // console.log(pieces);
-  let currentIndex = 0;
+  let currentIndex = Math.floor(Math.random() * 7);
   let currentSprite = pieces[currentIndex];
   // console.log(currentSprite);
 
@@ -188,6 +205,44 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     }
   });
 
+  // guess we take in an operator that is + for right border and - for left border
+  function calculateBorder(operator) {
+    //we want to find the left most border
+    const ops = {
+      "+": (a, b) => a + b,
+      "-": (a, b) => a - b,
+    };
+    const op = ops[operator];
+    let x = currentSprite.x;
+    let anchorX = currentSprite.anchor.x;
+    let anchorY = currentSprite.anchor.y;
+    let w = currentSprite.width;
+    let h = currentSprite.height;
+
+    let border;
+    switch (currentRotation) {
+      case 1:
+        border = op(x, anchorX * w);
+        //            currentSprite.x - currentSprite.anchor.x * currentSprite.width;
+        break;
+      case 2:
+        border = op(x, anchorY * h);
+        //            currentSprite.x - currentSprite.anchor.y * currentSprite.height;
+        break;
+      case 3:
+        border = op(x, (1 - anchorX) * w);
+        // currentSprite.x -
+        // (1 - currentSprite.anchor.x) * currentSprite.width;
+        break;
+      case 4:
+        border = op(x, (1 - anchorY) * h);
+        //   currentSprite.x -
+        //   (1 - currentSprite.anchor.y) * currentSprite.height;
+        break;
+    }
+    return border;
+  }
+
   function pieceControls() {
     if (KEYS["ArrowUp"]) {
       currentSprite.angle = currentSprite.angle + 90;
@@ -195,8 +250,13 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       KEYS["ArrowUp"] = false;
     }
     if (KEYS["ArrowLeft"]) {
-      let spriteLeft =
-        currentSprite.x - currentSprite.anchor.x * currentSprite.width;
+      let spriteLeft = calculateBorder("-");
+      // if (currentRotation % 2 == 0) {
+      //   spriteLeft = currentSprite.x;
+      // } else {
+      //   spriteLeft =
+      //     currentSprite.x - currentSprite.anchor.x * currentSprite.width;
+      // }
       if (spriteLeft > BOARDPIECEWIDTH) {
         // greater than the boarder piece,
         currentSprite.x -= BOARDPIECEWIDTH;
@@ -205,8 +265,9 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     }
     if (KEYS["ArrowRight"]) {
       // console.log(LEFTBORDER - BOARDPIECEWIDTH, currentSprite.x);
-      let spriteRight =
-        currentSprite.x + (1 - currentSprite.anchor.x) * currentSprite.width;
+      // let spriteRight =
+      //   currentSprite.x + (1 - currentSprite.anchor.x) * currentSprite.width;
+      let spriteRight = calculateBorder("+");
       if (spriteRight < LEFTBORDER - BOARDPIECEWIDTH) {
         // greater than the boarder piece,
         currentSprite.x += BOARDPIECEWIDTH;
@@ -315,6 +376,23 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
         currentSprite.anchor.y * currentSprite.width) /
         BOARDPIECEHEIGHT,
     );
+    // 1 is no rotation and 3 is flipped upside down
+    // bottom position is different based on which way we rotate. also anchor is not exactly even on all
+    // most are 2/3 anchors
+    let bottomPosY;
+    if (currentRotation % 2 == 0) {
+      bottomPosY =
+        Math.round(
+          currentSprite.position.y +
+            currentSprite.anchor.y * currentSprite.width,
+        ) / BOARDPIECEWIDTH;
+    } else {
+      bottomPosY = Math.round(
+        (currentSprite.position.y +
+          currentSprite.anchor.y * currentSprite.height) /
+          BOARDPIECEHEIGHT,
+      );
+    }
     // console.log(
     //   `sprite position x: ${currentSprite.position.x} and sprite position y: ${currentSprite.position.y}`,
     // );
@@ -332,13 +410,15 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
           // check if our blockMatrix position is filled
           if (currentBlockMatrix[row][col]) {
             const boardX = posX + col;
-            const boardY = posY + row;
-            boardMap[boardX][boardY] = 1;
+            const boardY = posY + row - 1; // our piece stops when it reaches a filled piece so we want to set it to that piece - 1
+            console.log(boardX, boardY);
+            // ahhh we gotta switch it up since it's row, col intead of col, row which would be x,y
+            // but we do y,x in our array.
+            boardMap[boardY][boardX] = 1;
           }
         }
       }
       console.log(boardMap);
-      app.ticker.stop();
     }
 
     for (let row = 0; row < currentBlockMatrix.length; row++) {
@@ -360,10 +440,14 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
           }
           // check if filled cell collides or bottom collision
           // dont check it if piece is partial on top of the board for respawn
+          // okay bottom reached is not just boardY, it should be posY at the bottom of the piece not the top left
+          console.log(bottomPosY >= boardMap.length - 1);
+          console.log(bottomPosY, boardMap.length - 1);
           if (
-            (boardY >= 0 && boardMap[boardY][boardX]) ||
-            boardY >= boardMap.length - 1
+            (boardY >= 0 && boardMap[boardY][boardX] == 1) ||
+            bottomPosY >= boardMap.length - 1
           ) {
+            console.log("adding to baoard map");
             addPieceToBoard();
             return true;
           }

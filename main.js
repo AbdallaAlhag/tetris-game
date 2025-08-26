@@ -13,11 +13,10 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 //  - add collision to blocks => done
 //  - add collision based on shape with grid map => in progress
 //  - bugs:
-//    - our 4 x 1 piece falls short of our bottom and left border by one piece => delt with
-//    - 2x2 piece is one off border => delt with
+//    - WORK ON WALL COLLISION AND PIECE COLLISION WITH ROTATION IN MIND! => Done
+//      - little weird as it kicks two pieces some times but no out of bounds pieces
 //    - space drop bugged, doesn't continue the loop
-//    - collision bugged on 4 x 1 piece
-//    - rotation on left border is one shy while rotation on right border is one over.
+//    - Work on bottom border due to rotation.
 
 (async () => {
   const app = new Application();
@@ -73,7 +72,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   const BOARDPIECEWIDTH = board.width / 12;
   const BOTTOMX = board.height - BOARDPIECEHEIGHT * 2; // board.height - 2 board pieces
   const MIDDLEX = board.width / 2;
-  const LEFTBORDER = board.width;
+  const RIGHTBORDER = board.width;
   let SPEED = 1;
 
   // test code for simple piece
@@ -177,7 +176,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   console.log(boardMap);
   // console.log(pieces);
   let currentIndex = Math.floor(Math.random() * 7);
-  let currentSprite = pieces[currentIndex];
+  let currentSprite = pieces[6];
   // console.log(currentSprite);
 
   // Add keyboard input
@@ -217,25 +216,32 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     let anchorX = currentSprite.anchor.x;
     let anchorY = currentSprite.anchor.y;
     let w = currentSprite.width;
-    let h = currentSprite.height;
 
     let border;
     switch (currentRotation) {
       case 1:
-        border = op(x, anchorX * w);
+        if (operator == "-") {
+          border = op(x, anchorX * w);
+        } else {
+          border = op(x, (1 - anchorX) * w);
+        }
         //            currentSprite.x - currentSprite.anchor.x * currentSprite.width;
         break;
       case 2:
-        border = op(x, anchorY * h);
+        border = op(x, anchorY * w);
         //            currentSprite.x - currentSprite.anchor.y * currentSprite.height;
         break;
       case 3:
-        border = op(x, (1 - anchorX) * w);
+        if (operator == "-") {
+          border = op(x, (1 - anchorX) * w);
+        } else {
+          border = op(x, anchorX * w);
+        }
         // currentSprite.x -
         // (1 - currentSprite.anchor.x) * currentSprite.width;
         break;
       case 4:
-        border = op(x, (1 - anchorY) * h);
+        border = op(x, (1 - anchorY) * w);
         //   currentSprite.x -
         //   (1 - currentSprite.anchor.y) * currentSprite.height;
         break;
@@ -243,10 +249,45 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     return border;
   }
 
+  // in case we rotate on the border and a piece falls out of bounds due to rotation.
+  function checkRotationValid() {
+    let valid =
+      calculateBorder("-") > BOARDPIECEWIDTH &&
+      calculateBorder("+") < RIGHTBORDER - BOARDPIECEWIDTH;
+
+    const kicks = [
+      { x: BOARDPIECEWIDTH, y: 0 },
+      { x: -BOARDPIECEWIDTH, y: 0 },
+      { x: 2 * BOARDPIECEWIDTH, y: 0 },
+      { x: -2 * BOARDPIECEWIDTH, y: 0 },
+      { x: 0, y: -BOARDPIECEHEIGHT },
+    ];
+    if (valid) {
+      // console.log("already valid");
+      return;
+    }
+    for (let kick of kicks) {
+      currentSprite.position.x += kick.x;
+      currentSprite.position.y += kick.y;
+
+      let kickedValid =
+        calculateBorder("-") > BOARDPIECEWIDTH &&
+        calculateBorder("+") < RIGHTBORDER - BOARDPIECEWIDTH;
+      if (kickedValid) {
+        break;
+      }
+
+      currentSprite.position.x -= kick.x;
+      currentSprite.position.y -= kick.y;
+    }
+  }
+
   function pieceControls() {
     if (KEYS["ArrowUp"]) {
       currentSprite.angle = currentSprite.angle + 90;
-      currentRotation = ((currentRotation + 1) % 4) + 1; // loop rotation 1 to 4 with 1 being original position
+      checkRotationValid();
+      currentRotation++;
+      currentRotation = ((currentRotation - 1) % 4) + 1;
       KEYS["ArrowUp"] = false;
     }
     if (KEYS["ArrowLeft"]) {
@@ -268,7 +309,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       // let spriteRight =
       //   currentSprite.x + (1 - currentSprite.anchor.x) * currentSprite.width;
       let spriteRight = calculateBorder("+");
-      if (spriteRight < LEFTBORDER - BOARDPIECEWIDTH) {
+      if (spriteRight < RIGHTBORDER - BOARDPIECEWIDTH) {
         // greater than the boarder piece,
         currentSprite.x += BOARDPIECEWIDTH;
       }
@@ -357,7 +398,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   // we can check collision for bottom or for border
   function gridCollision(blockMatrix) {
     let currentBlockMatrix = blockMatrix;
-    console.log("reached collision check");
+    // console.log("reached collision check");
 
     // grab the position from the board and convert it to fit our boardMap array,
     // most likely position / 12 or 22 rounded up i asssume
@@ -431,18 +472,19 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 
           // detect wall/ bottom collision (going to move bottom collision since piece does not stop at wall collision)
           // good wall detection but maybe we remove it
-          if (
-            boardX < 0 ||
-            boardX >= boardMap[0].length
-            // || boardY >= boardMap.length
-          ) {
-            return true;
-          }
+          // if (
+          //   boardX < 0 ||
+          //   boardX >= boardMap[0].length
+          //   // || boardY >= boardMap.length
+          // ) {
+          //   return true;
+          // }
+
           // check if filled cell collides or bottom collision
           // dont check it if piece is partial on top of the board for respawn
           // okay bottom reached is not just boardY, it should be posY at the bottom of the piece not the top left
-          console.log(bottomPosY >= boardMap.length - 1);
-          console.log(bottomPosY, boardMap.length - 1);
+          // console.log(bottomPosY >= boardMap.length - 1);
+          // console.log(bottomPosY, boardMap.length - 1);
           if (
             (boardY >= 0 && boardMap[boardY][boardX] == 1) ||
             bottomPosY >= boardMap.length - 1

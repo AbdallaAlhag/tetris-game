@@ -17,6 +17,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 //      - little weird as it kicks two pieces some times but no out of bounds pieces
 //    - space drop bugged, doesn't continue the loop
 //    - Work on bottom border due to rotation.
+//      - 4 x 1 don't work with bottom border and left side, fix but bottom border works for the rest!
 
 (async () => {
   const app = new Application();
@@ -74,11 +75,6 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   const MIDDLEX = board.width / 2;
   const RIGHTBORDER = board.width;
   let SPEED = 1;
-
-  // test code for simple piece
-  // const piece1Texture = await Assets.load(BASEURL + "/images/piece1.png");
-  // const piece1Sprite = Sprite.from(piece1Texture);
-  // piece1Sprite.scale.set(0.5);
 
   //  Load all the peices
   // let pieces = [iterable[Symbol.iterator: self.anchor[0], self.anchor[1];
@@ -174,10 +170,8 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     }
   }
   console.log(boardMap);
-  // console.log(pieces);
-  let currentIndex = Math.floor(Math.random() * 7);
-  let currentSprite = pieces[6];
-  // console.log(currentSprite);
+  let currentIndex = 0;
+  let currentSprite = pieces[currentIndex];
 
   // Add keyboard input
   const KEYS = {};
@@ -218,6 +212,22 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     let w = currentSprite.width;
 
     let border;
+
+    if (currentIndex == 0) {
+      switch (currentRotation) {
+        case 1:
+        case 3:
+          border = op(x, anchorX * w);
+          break;
+        case 2:
+          border = operator == "+" ? x : x - anchorX * 2 * currentSprite.height;
+          break;
+        case 4:
+          border = operator == "-" ? x : x + anchorX * 2 * currentSprite.height;
+          break;
+      }
+      return border;
+    }
     switch (currentRotation) {
       case 1:
         if (operator == "-") {
@@ -225,11 +235,9 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
         } else {
           border = op(x, (1 - anchorX) * w);
         }
-        //            currentSprite.x - currentSprite.anchor.x * currentSprite.width;
         break;
       case 2:
         border = op(x, anchorY * w);
-        //            currentSprite.x - currentSprite.anchor.y * currentSprite.height;
         break;
       case 3:
         if (operator == "-") {
@@ -237,13 +245,9 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
         } else {
           border = op(x, anchorX * w);
         }
-        // currentSprite.x -
-        // (1 - currentSprite.anchor.x) * currentSprite.width;
         break;
       case 4:
         border = op(x, (1 - anchorY) * w);
-        //   currentSprite.x -
-        //   (1 - currentSprite.anchor.y) * currentSprite.height;
         break;
     }
     return border;
@@ -263,7 +267,6 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       { x: 0, y: -BOARDPIECEHEIGHT },
     ];
     if (valid) {
-      // console.log("already valid");
       return;
     }
     for (let kick of kicks) {
@@ -292,12 +295,6 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     }
     if (KEYS["ArrowLeft"]) {
       let spriteLeft = calculateBorder("-");
-      // if (currentRotation % 2 == 0) {
-      //   spriteLeft = currentSprite.x;
-      // } else {
-      //   spriteLeft =
-      //     currentSprite.x - currentSprite.anchor.x * currentSprite.width;
-      // }
       if (spriteLeft > BOARDPIECEWIDTH) {
         // greater than the boarder piece,
         currentSprite.x -= BOARDPIECEWIDTH;
@@ -305,9 +302,6 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       KEYS["ArrowLeft"] = false;
     }
     if (KEYS["ArrowRight"]) {
-      // console.log(LEFTBORDER - BOARDPIECEWIDTH, currentSprite.x);
-      // let spriteRight =
-      //   currentSprite.x + (1 - currentSprite.anchor.x) * currentSprite.width;
       let spriteRight = calculateBorder("+");
       if (spriteRight < RIGHTBORDER - BOARDPIECEWIDTH) {
         // greater than the boarder piece,
@@ -366,32 +360,6 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     return s;
   }
 
-  // // cal this function on every sprite in our container but the background, probably want to give it an id of 'background'
-  // function borderCollision(lockedSprite) {
-  //   // we have to find top border of sprites on board
-  //   // and then bottom borders of currentSprite and see if they share the same
-  //   // y position
-  //   let locked = lockedSprite.getBounds();
-  //   let current = currentSprite.getBounds();
-  //
-  //   let lockedLeft = locked.x - lockedSprite.anchor.x * locked.width;
-  //   let lockedRight = lockedLeft + locked.width;
-  //
-  //   let currentLeft = current.x - currentSprite.anchor.x * current.width;
-  //   let currentRight = currentLeft + current.width;
-  //
-  //   // current y + width = bottom and locked.y is probbaly top but anchor might play a role
-  //   if (
-  //     current.y + current.height * currentSprite.anchor.y ==
-  //       locked.y - locked.height * lockedSprite.anchor.y &&
-  //     !(currentLeft >= lockedRight || currentRight <= lockedLeft)
-  //   ) {
-  //     console.log("collision detected");
-  //     return false;
-  //   }
-  //   return true;
-  // }
-
   // grab the blockMatrix from our pieceGrids array;
   // we can use the boardGrid and currentSprite to get x and y position.
 
@@ -421,30 +389,46 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     // bottom position is different based on which way we rotate. also anchor is not exactly even on all
     // most are 2/3 anchors
     let bottomPosY;
-    if (currentRotation % 2 == 0) {
-      bottomPosY =
-        Math.round(
-          currentSprite.position.y +
-            currentSprite.anchor.y * currentSprite.width,
-        ) / BOARDPIECEWIDTH;
+    console.log(currentRotation);
+    if (currentIndex != 0) {
+      if (currentRotation % 2 != 0) {
+        bottomPosY =
+          Math.round(
+            currentSprite.position.y +
+              currentSprite.anchor.y * currentSprite.width,
+          ) / BOARDPIECEWIDTH;
+      } else if (currentRotation == 2) {
+        bottomPosY = Math.round(
+          (currentSprite.position.y +
+            currentSprite.anchor.x * currentSprite.height) /
+            BOARDPIECEHEIGHT,
+        );
+      } else {
+        bottomPosY = Math.round(
+          (currentSprite.position.y +
+            currentSprite.anchor.y * currentSprite.width) /
+            BOARDPIECEHEIGHT,
+        );
+      }
     } else {
-      bottomPosY = Math.round(
-        (currentSprite.position.y +
-          currentSprite.anchor.y * currentSprite.height) /
-          BOARDPIECEHEIGHT,
-      );
+      if (currentRotation % 2 == 0) {
+        console.log("hiiiiiiiiii");
+        bottomPosY = Math.round(
+          (currentSprite.position.y + 2 * BOARDPIECEHEIGHT) / BOARDPIECEHEIGHT,
+        );
+      } else if (currentRotation == 1) {
+        bottomPosY = Math.round(
+          (currentSprite.position.y + BOARDPIECEHEIGHT) / BOARDPIECEHEIGHT,
+        );
+      } else {
+        bottomPosY = Math.round(currentSprite.position.y / BOARDPIECEHEIGHT);
+      }
     }
-    // console.log(
-    //   `sprite position x: ${currentSprite.position.x} and sprite position y: ${currentSprite.position.y}`,
-    // );
-    // console.log(`position x: ${posX} and position y: ${posY}`);
-    // app.ticker.stop();
+    console.log(bottomPosY);
     // our current block based on its current rotation, 1 = no rotation
     for (let i = 0; i < currentRotation - 1; i++) {
       currentBlockMatrix = rotateClockWise(blockMatrix);
     }
-    // console.log(currentBlockMatrix);
-    // app.ticker.stop();
     function addPieceToBoard() {
       for (let row = 0; row < currentBlockMatrix.length; row++) {
         for (let col = 0; col < currentBlockMatrix[row].length; col++) {
@@ -455,7 +439,9 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
             console.log(boardX, boardY);
             // ahhh we gotta switch it up since it's row, col intead of col, row which would be x,y
             // but we do y,x in our array.
-            boardMap[boardY][boardX] = 1;
+            if (boardY <= 21 && boardX <= 11) {
+              boardMap[boardY][boardX] = 1;
+            }
           }
         }
       }
@@ -469,27 +455,17 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
         if (currentBlockMatrix[row][col]) {
           const boardX = posX + col;
           const boardY = posY + row;
-
-          // detect wall/ bottom collision (going to move bottom collision since piece does not stop at wall collision)
-          // good wall detection but maybe we remove it
-          // if (
-          //   boardX < 0 ||
-          //   boardX >= boardMap[0].length
-          //   // || boardY >= boardMap.length
-          // ) {
-          //   return true;
-          // }
-
-          // check if filled cell collides or bottom collision
-          // dont check it if piece is partial on top of the board for respawn
-          // okay bottom reached is not just boardY, it should be posY at the bottom of the piece not the top left
-          // console.log(bottomPosY >= boardMap.length - 1);
-          // console.log(bottomPosY, boardMap.length - 1);
+          console.log(boardY, boardX);
           if (
-            (boardY >= 0 && boardMap[boardY][boardX] == 1) ||
+            (boardY >= 0 &&
+              boardY <= 21 &&
+              boardX <= 11 &&
+              boardMap[boardY][boardX] == 1) ||
             bottomPosY >= boardMap.length - 1
           ) {
             console.log("adding to baoard map");
+            console.log("bottomPosY", bottomPosY);
+            console.log("boardMap.length - 1 = ", boardMap.length - 1);
             addPieceToBoard();
             return true;
           }
@@ -514,20 +490,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 
   function pieceLoop() {
     let randomIndex = Math.floor(Math.random() * 7);
-    if (
-      // currentSprite.position.y == BOTTOMX ||
-      // !(
-      //   board.children.toReversed().every((e, index) => {
-      //     // test on every sprite but background and last sprite which is current
-      //     if (e.id === "background" || index === 0) {
-      //       return true; // skip these
-      //     }
-      //     console.log("checking");
-      //     return borderCollision(e);
-      //   }) && !bottomReached
-      // )
-      gridCollision(pieceGrids[currentIndex])
-    ) {
+    if (gridCollision(pieceGrids[currentIndex])) {
       console.log("reachedbottom");
       app.ticker.remove(pieceControls);
       // currentSprite = cloneSprite(pieces[Math.floor(Math.random() * 7)]);
@@ -537,16 +500,6 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       board.addChild(currentSprite);
       bottomReached = true;
       app.ticker.add(pieceControls);
-      // dropPiece(); // stacks app.ticker()
-
-      // console.log(app.ticker);
-      // let listener = app.ticker._head;
-      // let count = 0;
-      // while (listener) {
-      //   count++;
-      //   listener = listener.next;
-      // }
-      // console.log(count);
     }
     if (currentSprite.y <= BOTTOMX) {
       bottomReached = false;

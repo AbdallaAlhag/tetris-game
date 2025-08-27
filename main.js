@@ -17,7 +17,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 //      - little weird as it kicks two pieces some times but no out of bounds pieces
 //    - space drop bugged, doesn't continue the loop
 //    - Work on bottom border due to rotation.
-//      - 4 x 1 don't work with bottom border and left side, fix but bottom border works for the rest!
+//      - 4 x 1 don't work with bottom border and left side, fix but bottom border works for the rest! => Done
 
 (async () => {
   const app = new Application();
@@ -71,7 +71,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   // Top and Bottom x of the board
   const BOARDPIECEHEIGHT = board.height / 22;
   const BOARDPIECEWIDTH = board.width / 12;
-  const BOTTOMX = board.height - BOARDPIECEHEIGHT * 2; // board.height - 2 board pieces
+  const BOTTOM = board.height - BOARDPIECEHEIGHT; // board.height - 2 board pieces
   const MIDDLEX = board.width / 2;
   const RIGHTBORDER = board.width;
   let SPEED = 1;
@@ -113,15 +113,21 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   // pieces[0].block = [4, 1]; // I block
   // //anchor = (0.5, 0)
 
+  // const I = [
+  //   [0, 0, 0, 0],
+  //   [1, 1, 1, 1],
+  //   [0, 0, 0, 0],
+  //   [0, 0, 0, 0],
+  // ];
   const I = [
-    [0, 0, 0, 0],
     [1, 1, 1, 1],
+    [0, 0, 0, 0],
     [0, 0, 0, 0],
     [0, 0, 0, 0],
   ];
   const O = [
-    [0, 1, 1, 0],
-    [0, 1, 1, 0],
+    [1, 1, 0, 0],
+    [1, 1, 0, 0],
     [0, 0, 0, 0],
     [0, 0, 0, 0],
   ];
@@ -314,7 +320,8 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       KEYS["ArrowDown"] = false;
     }
     if (KEYS["Space"]) {
-      currentSprite.y = BOTTOMX + BOARDPIECEHEIGHT;
+      currentSprite.y = BOTTOM - BOARDPIECEHEIGHT;
+      KEYS["Space"] = false;
     }
   }
   app.ticker.add(pieceControls);
@@ -332,11 +339,10 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 
       if (bottomReached) {
         dropCounter = 0;
-        console.log("remove drop");
         app.ticker.remove(dropFunction());
         return;
       }
-      if (dropCounter >= dropInterval && currentSprite.position.y <= BOTTOMX) {
+      if (dropCounter >= dropInterval && currentSprite.position.y <= BOTTOM) {
         currentSprite.position.y += BOARDPIECEHEIGHT;
         dropCounter = 0; // reset counter
       }
@@ -356,7 +362,6 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     s.scale.set(template.scale.x, template.scale.y);
     s.x = MIDDLEX;
     s.id = "piece";
-    // console.log(s);
     return s;
   }
 
@@ -366,7 +371,6 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   // we can check collision for bottom or for border
   function gridCollision(blockMatrix) {
     let currentBlockMatrix = blockMatrix;
-    // console.log("reached collision check");
 
     // grab the position from the board and convert it to fit our boardMap array,
     // most likely position / 12 or 22 rounded up i asssume
@@ -389,7 +393,6 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     // bottom position is different based on which way we rotate. also anchor is not exactly even on all
     // most are 2/3 anchors
     let bottomPosY;
-    console.log(currentRotation);
     if (currentIndex != 0) {
       if (currentRotation % 2 != 0) {
         bottomPosY =
@@ -412,7 +415,6 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       }
     } else {
       if (currentRotation % 2 == 0) {
-        console.log("hiiiiiiiiii");
         bottomPosY = Math.round(
           (currentSprite.position.y + 2 * BOARDPIECEHEIGHT) / BOARDPIECEHEIGHT,
         );
@@ -424,19 +426,20 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
         bottomPosY = Math.round(currentSprite.position.y / BOARDPIECEHEIGHT);
       }
     }
-    console.log(bottomPosY);
     // our current block based on its current rotation, 1 = no rotation
     for (let i = 0; i < currentRotation - 1; i++) {
       currentBlockMatrix = rotateClockWise(blockMatrix);
+      console.log(currentBlockMatrix);
     }
     function addPieceToBoard() {
+      console.log(currentBlockMatrix);
       for (let row = 0; row < currentBlockMatrix.length; row++) {
         for (let col = 0; col < currentBlockMatrix[row].length; col++) {
           // check if our blockMatrix position is filled
           if (currentBlockMatrix[row][col]) {
+            console.log(posX, posY, bottomPosY);
             const boardX = posX + col;
-            const boardY = posY + row - 1; // our piece stops when it reaches a filled piece so we want to set it to that piece - 1
-            console.log(boardX, boardY);
+            const boardY = posY + row; // our piece stops when it reaches a filled piece so we want to set it to that piece - 1
             // ahhh we gotta switch it up since it's row, col intead of col, row which would be x,y
             // but we do y,x in our array.
             if (boardY <= 21 && boardX <= 11) {
@@ -455,19 +458,17 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
         if (currentBlockMatrix[row][col]) {
           const boardX = posX + col;
           const boardY = posY + row;
-          console.log(boardY, boardX);
-          if (
-            (boardY >= 0 &&
-              boardY <= 21 &&
-              boardX <= 11 &&
-              boardMap[boardY][boardX] == 1) ||
-            bottomPosY >= boardMap.length - 1
-          ) {
-            console.log("adding to baoard map");
-            console.log("bottomPosY", bottomPosY);
-            console.log("boardMap.length - 1 = ", boardMap.length - 1);
-            addPieceToBoard();
-            return true;
+          // console.log("first: ", boardY >= 0 && boardY <= 21 && boardX <= 11);
+          // console.log("second: ", boardMap[boardY][boardX] === 1);
+          // console.log("third: ", bottomPosY >= boardMap.length - 1);
+          if (boardY >= 0 && boardY <= 21 && boardX <= 11) {
+            if (
+              boardMap[boardY + 1][boardX] === 1 ||
+              bottomPosY >= boardMap.length - 1
+            ) {
+              addPieceToBoard();
+              return true;
+            }
           }
         }
       }
@@ -501,7 +502,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       bottomReached = true;
       app.ticker.add(pieceControls);
     }
-    if (currentSprite.y <= BOTTOMX) {
+    if (currentSprite.y <= BOTTOM) {
       bottomReached = false;
     }
   }

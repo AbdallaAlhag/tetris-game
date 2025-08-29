@@ -1,4 +1,4 @@
-import { Application, Container, Assets, Sprite } from "pixi.js";
+import { Application, Container, Assets, Sprite, Point } from "pixi.js";
 
 // TODO:
 // add single piece
@@ -162,7 +162,8 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     [0, 0, 0, 0],
   ];
 
-  const pieceGrids = [I, J, L, O, S, T, Z];
+  let pieceGrids = [I, J, L, O, S, T, Z];
+  let originalPieceGrids = structuredClone(pieceGrids);
   let boardMap = [];
   // create board that represents our board with borders set up as -1
   for (let i = 0; i < 22; i++) {
@@ -176,7 +177,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     }
   }
   console.log(boardMap);
-  let currentIndex = 0;
+  let currentIndex = 6;
   let currentSprite = pieces[currentIndex];
 
   // Add keyboard input
@@ -379,16 +380,63 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     // relocate upper ancho temporarily
 
     // posX and posY should be upper left corner of our block
-    let posX = Math.round(
-      (currentSprite.position.x -
-        currentSprite.anchor.x * currentSprite.width) /
-        BOARDPIECEWIDTH,
-    );
-    let posY = Math.round(
-      (currentSprite.position.y -
-        currentSprite.anchor.y * currentSprite.width) /
-        BOARDPIECEHEIGHT,
-    );
+    // fuck, we got to account for rotation. this is so fucking annoying
+    // okay when we rotate, our width and height switch so we just got to account for that.
+    let posX;
+    let posY;
+    // case 1 and 3
+    if (currentRotation % 2 != 0) {
+      posX = Math.round(
+        (currentSprite.position.x -
+          currentSprite.anchor.x * currentSprite.width) /
+          BOARDPIECEWIDTH,
+      );
+      posY = Math.round(
+        (currentSprite.position.y -
+          currentSprite.anchor.y * currentSprite.height) /
+          BOARDPIECEHEIGHT,
+      );
+    } else {
+      posX = Math.round(
+        (currentSprite.position.x -
+          currentSprite.anchor.x * currentSprite.height) /
+          BOARDPIECEWIDTH,
+      );
+      posY = Math.round(
+        (currentSprite.position.y -
+          currentSprite.anchor.y * currentSprite.width) /
+          BOARDPIECEHEIGHT,
+      );
+    }
+
+    // 4 x 1 needs its own calc
+    if (currentIndex == 0) {
+      if (currentRotation % 2 == 0) {
+        posX =
+          currentRotation == 2
+            ? Math.round(
+                (currentSprite.position.x - BOARDPIECEWIDTH) / BOARDPIECEWIDTH,
+              )
+            : Math.round(
+                (currentSprite.position.x - BOARDPIECEWIDTH) / BOARDPIECEWIDTH,
+              );
+      }
+      if (currentRotation % 2 == 0) {
+        // rotation 2 or 4
+        posY = Math.round(
+          (currentSprite.position.y - 2 * BOARDPIECEHEIGHT) / BOARDPIECEHEIGHT,
+        );
+      } else {
+        // rotation 1 or 3
+        posY =
+          currentRotation == 1
+            ? Math.round(currentSprite.position.y / BOARDPIECEHEIGHT)
+            : Math.round(
+                (currentSprite.position.y - BOARDPIECEHEIGHT) /
+                  BOARDPIECEHEIGHT,
+              );
+      }
+    }
     // 1 is no rotation and 3 is flipped upside down
     // bottom position is different based on which way we rotate. also anchor is not exactly even on all
     // most are 2/3 anchors
@@ -429,7 +477,8 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     // our current block based on its current rotation, 1 = no rotation
     for (let i = 0; i < currentRotation - 1; i++) {
       currentBlockMatrix = rotateClockWise(blockMatrix);
-      console.log(currentBlockMatrix);
+      pieceGrids[currentIndex] = currentBlockMatrix;
+      // console.log(currentBlockMatrix);
     }
     function addPieceToBoard() {
       console.log(currentBlockMatrix);
@@ -437,13 +486,27 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
         for (let col = 0; col < currentBlockMatrix[row].length; col++) {
           // check if our blockMatrix position is filled
           if (currentBlockMatrix[row][col]) {
-            console.log(posX, posY, bottomPosY);
+            // console.log(posX, posY, bottomPosY);
             const boardX = posX + col;
             const boardY = posY + row; // our piece stops when it reaches a filled piece so we want to set it to that piece - 1
             // ahhh we gotta switch it up since it's row, col intead of col, row which would be x,y
             // but we do y,x in our array.
             if (boardY <= 21 && boardX <= 11) {
               boardMap[boardY][boardX] = 1;
+              console.log(
+                "posx calc: ",
+                currentSprite.position.x / BOARDPIECEWIDTH,
+                currentSprite.anchor.x,
+                currentSprite.width / BOARDPIECEWIDTH,
+              );
+              console.log(
+                "boardY, boardX: ",
+                boardY,
+                boardX,
+                "posY, posX: ",
+                posY,
+                posX,
+              );
             }
           }
         }
@@ -451,6 +514,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       console.log(boardMap);
     }
 
+    // console.log(posY, posX);
     for (let row = 0; row < currentBlockMatrix.length; row++) {
       for (let col = 0; col < currentBlockMatrix[row].length; col++) {
         // check if our blockMatrix position is filled
@@ -459,9 +523,10 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
           const boardX = posX + col;
           const boardY = posY + row;
           // console.log("first: ", boardY >= 0 && boardY <= 21 && boardX <= 11);
-          // console.log("second: ", boardMap[boardY][boardX] === 1);
+          // console.log("second: ", boardMap[boardY + 1][boardX] === 1);
           // console.log("third: ", bottomPosY >= boardMap.length - 1);
           if (boardY >= 0 && boardY <= 21 && boardX <= 11) {
+            // console.log(boardY, boardX, boardMap[boardY][boardX]);
             if (
               boardMap[boardY + 1][boardX] === 1 ||
               bottomPosY >= boardMap.length - 1
@@ -478,6 +543,8 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   }
   function rotateClockWise(mat) {
     const n = mat.length;
+    // console.log("before rotation: ");
+    // console.table(mat);
 
     const res = Array.from({ length: n }, () => Array(n).fill(0));
 
@@ -486,14 +553,87 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
         res[j][n - 1 - i] = mat[i][j];
       }
     }
+    // console.log("rotation: ", res);
+    // after we rotate we want to make sure we shift the values up and to the left.
+    // if we just make it rotate to the left and up, it might not give us the same value.
+    // [0, 0, 1, 0]
+    // [1, 1, 1, 0]
+    // [0, 0, 0, 0]
+    // [0, 0, 0, 0]
+    //
+    // to:
+    //
+    // [0,0,1,0]
+    // [0,0,1,0]
+    // [0,0,1,1]
+    // [0,0,0,0]
+    //
+    // then finally :
+    // [1,0,0,0]
+    // [1,0,0,0]
+    // [1,1,0,0]
+    // [0,0,0,0]
+    //
+
+    // console.log("final result", res);
+    return shiftBlockLeft(res);
+  }
+
+  // ai generated code function. -- to lazy to write and fix the bugs introduced when dealing with other current bugs. lol bad programmer!
+  function shiftBlockLeft(mat) {
+    const rows = mat.length;
+    const cols = mat[0].length;
+
+    // find the leftmost column that contains a 1 anywhere
+    let left = cols; // start as "infinity"
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (mat[r][c] === 1) {
+          left = Math.min(left, c);
+          break;
+        }
+      }
+    }
+
+    // no 1s or already flush left
+    if (left === 0 || left === cols) {
+      // let res = mat.map((row) => row.slice());
+      // console.log("after rotation and no left shift");
+      // console.table(res);
+      return mat.map((row) => row.slice());
+    }
+
+    // shift all cells left by `left`
+    const res = Array.from({ length: rows }, () => Array(cols).fill(0));
+    for (let r = 0; r < rows; r++) {
+      for (let c = left; c < cols; c++) {
+        res[r][c - left] = mat[r][c];
+      }
+    }
+    // console.log("after rotation and left shift");
+    // console.table(res);
     return res;
   }
 
+  // let arr1 = pieceGrids[currentIndex];
+  // console.log("original arry");
+  // console.table(arr1);
+  // console.log("rotate call 1");
+  // arr1 = rotateClockWise(arr1);
+  // console.log("rotate call 2");
+  // arr1 = rotateClockWise(arr1);
+  // console.log("rotate call 3");
+  // arr1 = rotateClockWise(arr1);
+  //
+  // app.ticker.stop();
+
   function pieceLoop() {
-    let randomIndex = Math.floor(Math.random() * 7);
     if (gridCollision(pieceGrids[currentIndex])) {
+      let randomIndex = Math.floor(Math.random() * 7);
       console.log("reachedbottom");
       app.ticker.remove(pieceControls);
+      // resset our piece grids to original placements
+      pieceGrids = structuredClone(originalPieceGrids);
       // currentSprite = cloneSprite(pieces[Math.floor(Math.random() * 7)]);
       currentSprite = cloneSprite(randomIndex);
       currentRotation = 1;

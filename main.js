@@ -18,6 +18,7 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
 //    - space drop bugged, doesn't continue the loop
 //    - Work on bottom border due to rotation.
 //      - 4 x 1 don't work with bottom border and left side, fix but bottom border works for the rest! => Done
+//    - last roatation does not work correctly.
 
 (async () => {
   const app = new Application();
@@ -179,6 +180,7 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
   console.log(boardMap);
   let currentIndex = 6;
   let currentSprite = pieces[currentIndex];
+  let shifted = false;
 
   // Add keyboard input
   const KEYS = {};
@@ -299,6 +301,7 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
       currentRotation++;
       currentRotation = ((currentRotation - 1) % 4) + 1;
       KEYS["ArrowUp"] = false;
+      shifted = true;
     }
     if (KEYS["ArrowLeft"]) {
       let spriteLeft = calculateBorder("-");
@@ -475,13 +478,18 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
       }
     }
     // our current block based on its current rotation, 1 = no rotation
-    for (let i = 0; i < currentRotation - 1; i++) {
+    if (shifted) {
+      // for (let i = 0; i < currentRotation - 1; i++) {
       currentBlockMatrix = rotateClockWise(blockMatrix);
       pieceGrids[currentIndex] = currentBlockMatrix;
       // console.log(currentBlockMatrix);
+      // }
+      shifted = false;
+      // console.log("shifted properly");
+      // console.table(currentBlockMatrix);
     }
     function addPieceToBoard() {
-      console.log(currentBlockMatrix);
+      console.table(currentBlockMatrix);
       for (let row = 0; row < currentBlockMatrix.length; row++) {
         for (let col = 0; col < currentBlockMatrix[row].length; col++) {
           // check if our blockMatrix position is filled
@@ -493,25 +501,25 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
             // but we do y,x in our array.
             if (boardY <= 21 && boardX <= 11) {
               boardMap[boardY][boardX] = 1;
-              console.log(
-                "posx calc: ",
-                currentSprite.position.x / BOARDPIECEWIDTH,
-                currentSprite.anchor.x,
-                currentSprite.width / BOARDPIECEWIDTH,
-              );
-              console.log(
-                "boardY, boardX: ",
-                boardY,
-                boardX,
-                "posY, posX: ",
-                posY,
-                posX,
-              );
+              // console.log(
+              //   "posx calc: ",
+              //   currentSprite.position.x / BOARDPIECEWIDTH,
+              //   currentSprite.anchor.x,
+              //   currentSprite.width / BOARDPIECEWIDTH,
+              // );
+              // console.log(
+              //   "boardY, boardX: ",
+              //   boardY,
+              //   boardX,
+              //   "posY, posX: ",
+              //   posY,
+              //   posX,
+              // );
             }
           }
         }
       }
-      console.log(boardMap);
+      console.table(boardMap);
     }
 
     // console.log(posY, posX);
@@ -575,7 +583,8 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
     // [0,0,0,0]
     //
 
-    // console.log("final result", res);
+    // console.log("final result of shift:");
+    // console.table(res);
     return shiftBlockLeft(res);
   }
 
@@ -612,6 +621,7 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
     }
     // console.log("after rotation and left shift");
     // console.table(res);
+    // console.log("-------------------------------------------------------");
     return res;
   }
 
@@ -634,6 +644,7 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
       app.ticker.remove(pieceControls);
       // resset our piece grids to original placements
       pieceGrids = structuredClone(originalPieceGrids);
+      shifted = false;
       // currentSprite = cloneSprite(pieces[Math.floor(Math.random() * 7)]);
       currentSprite = cloneSprite(randomIndex);
       currentRotation = 1;

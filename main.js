@@ -18,7 +18,8 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
 //    - space drop bugged, doesn't continue the loop
 //    - Work on bottom border due to rotation.
 //      - 4 x 1 don't work with bottom border and left side, fix but bottom border works for the rest! => Done
-//    - last roatation does not work correctly.
+//    - last roatation does not work correctly. => Done
+//    - fix boardmap not updating properly, sometimes off by one index. => Done
 
 (async () => {
   const app = new Application();
@@ -394,7 +395,7 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
           currentSprite.anchor.x * currentSprite.width) /
           BOARDPIECEWIDTH,
       );
-      posY = Math.round(
+      posY = Math.floor(
         (currentSprite.position.y -
           currentSprite.anchor.y * currentSprite.height) /
           BOARDPIECEHEIGHT,
@@ -405,7 +406,7 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
           currentSprite.anchor.x * currentSprite.height) /
           BOARDPIECEWIDTH,
       );
-      posY = Math.round(
+      posY = Math.floor(
         (currentSprite.position.y -
           currentSprite.anchor.y * currentSprite.width) /
           BOARDPIECEHEIGHT,
@@ -445,25 +446,30 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
     // most are 2/3 anchors
     let bottomPosY;
     if (currentIndex != 0) {
-      if (currentRotation % 2 != 0) {
-        bottomPosY =
-          Math.round(
-            currentSprite.position.y +
-              currentSprite.anchor.y * currentSprite.width,
-          ) / BOARDPIECEWIDTH;
-      } else if (currentRotation == 2) {
-        bottomPosY = Math.round(
-          (currentSprite.position.y +
-            currentSprite.anchor.x * currentSprite.height) /
-            BOARDPIECEHEIGHT,
-        );
-      } else {
-        bottomPosY = Math.round(
-          (currentSprite.position.y +
-            currentSprite.anchor.y * currentSprite.width) /
-            BOARDPIECEHEIGHT,
-        );
-      }
+      // I don't need to use anchor to calculate the height since we have the posY (which is the top left), we can just add the height to it
+      // console.log(posY, currentSprite.width / BOARDPIECEHEIGHT);
+      let distanceFromBottom =
+        currentRotation % 2 != 1 ? currentSprite.width : currentSprite.height;
+      bottomPosY = Math.floor(posY + distanceFromBottom / BOARDPIECEHEIGHT);
+      // if (currentRotation % 2 != 0) {
+      //   bottomPosY =
+      //     Math.round(
+      //       currentSprite.position.y +
+      //         currentSprite.anchor.y * currentSprite.height,
+      //     ) / BOARDPIECEWIDTH;
+      // } else if (currentRotation == 2) {
+      //   bottomPosY = Math.round(
+      //     (currentSprite.position.y +
+      //       currentSprite.anchor.x * currentSprite.height) /
+      //       BOARDPIECEHEIGHT,
+      //   );
+      // } else {
+      //   bottomPosY = Math.round(
+      //     (currentSprite.position.y +
+      //       currentSprite.anchor.y * currentSprite.height) /
+      //       BOARDPIECEHEIGHT,
+      //   );
+      // }
     } else {
       if (currentRotation % 2 == 0) {
         bottomPosY = Math.round(
@@ -494,27 +500,30 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
         for (let col = 0; col < currentBlockMatrix[row].length; col++) {
           // check if our blockMatrix position is filled
           if (currentBlockMatrix[row][col]) {
-            // console.log(posX, posY, bottomPosY);
+            // console.log(
+            //   "x pos: ",
+            //   posX,
+            //   "y pos: ",
+            //   posY,
+            //   "bottom pos:",
+            //   bottomPosY,
+            // );
             const boardX = posX + col;
             const boardY = posY + row; // our piece stops when it reaches a filled piece so we want to set it to that piece - 1
             // ahhh we gotta switch it up since it's row, col intead of col, row which would be x,y
             // but we do y,x in our array.
             if (boardY <= 21 && boardX <= 11) {
               boardMap[boardY][boardX] = 1;
-              // console.log(
-              //   "posx calc: ",
-              //   currentSprite.position.x / BOARDPIECEWIDTH,
-              //   currentSprite.anchor.x,
-              //   currentSprite.width / BOARDPIECEWIDTH,
-              // );
-              // console.log(
-              //   "boardY, boardX: ",
-              //   boardY,
-              //   boardX,
-              //   "posY, posX: ",
-              //   posY,
-              //   posX,
-              // );
+              console.log(
+                "boardY, boardX: ",
+                boardY,
+                boardX,
+                "posY, posX: ",
+                posY,
+                posX,
+                "bottom pos y; ",
+                bottomPosY,
+              );
             }
           }
         }
@@ -535,10 +544,23 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
           // console.log("third: ", bottomPosY >= boardMap.length - 1);
           if (boardY >= 0 && boardY <= 21 && boardX <= 11) {
             // console.log(boardY, boardX, boardMap[boardY][boardX]);
+            // okay these three cases should be split into two sections with the first two calling addPieceToBoard but not stopping
+            // until after while the other should remain the same.
+            // so check if boardY === 1 then reduce it by one instead of checking early since that messes up our gui.
+            console.log("BottomPOS: ", bottomPosY);
+
+            if (bottomPosY >= boardMap.length - 1) {
+              console.log("hiiiiii");
+              addPieceToBoard();
+              return true;
+            }
+            // more of a check at the bottom rather then a top end of game check.
             if (
-              boardMap[boardY + 1][boardX] === 1 ||
-              bottomPosY >= boardMap.length - 1
+              boardY > BOARDPIECEHEIGHT &&
+              (boardMap[boardY][boardX] === 1 ||
+                boardMap[boardY][boardX] === -1)
             ) {
+              console.log("hoooooooooooo");
               addPieceToBoard();
               return true;
             }

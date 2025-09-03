@@ -1,4 +1,4 @@
-import { Application, Container, Assets, Sprite, Point } from "pixi.js";
+import { Application, Container, Assets, Sprite } from "pixi.js";
 
 // TODO:
 // add single piece
@@ -179,6 +179,11 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
     }
   }
   console.log(boardMap);
+  // index 1 position 4
+  // index 2 position 4
+  // index 4 position 4
+  // index 5 position 4
+  // index 6. pos 4 is visually one down
   let currentIndex = 6;
   let currentSprite = pieces[currentIndex];
   let shifted = false;
@@ -388,29 +393,45 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
     // okay when we rotate, our width and height switch so we just got to account for that.
     let posX;
     let posY;
-    // case 1 and 3
     if (currentRotation % 2 != 0) {
-      posX = Math.round(
-        (currentSprite.position.x -
-          currentSprite.anchor.x * currentSprite.width) /
-          BOARDPIECEWIDTH,
-      );
+      // case 1 and 3
+      if (currentRotation == 3) {
+        posX = Math.ceil(
+          (currentSprite.position.x -
+            (1 - currentSprite.anchor.x) * currentSprite.width) /
+            BOARDPIECEWIDTH,
+        );
+      } else if (currentRotation == 1) {
+        posX = Math.ceil(
+          (currentSprite.position.x -
+            currentSprite.anchor.x * currentSprite.width) /
+            BOARDPIECEWIDTH,
+        );
+      }
       posY = Math.floor(
         (currentSprite.position.y -
           currentSprite.anchor.y * currentSprite.height) /
           BOARDPIECEHEIGHT,
       );
     } else {
-      posX = Math.round(
+      posX = Math.ceil(
         (currentSprite.position.x -
           currentSprite.anchor.x * currentSprite.height) /
           BOARDPIECEWIDTH,
       );
-      posY = Math.floor(
-        (currentSprite.position.y -
-          currentSprite.anchor.y * currentSprite.width) /
-          BOARDPIECEHEIGHT,
-      );
+      if (currentRotation == 2) {
+        posY = Math.floor(
+          (currentSprite.position.y -
+            currentSprite.anchor.y * currentSprite.width) /
+            BOARDPIECEHEIGHT,
+        );
+      } else if (currentRotation == 4) {
+        posY = Math.ceil(
+          (currentSprite.position.y -
+            (1 - currentSprite.anchor.y) * currentSprite.width) /
+            BOARDPIECEHEIGHT,
+        );
+      }
     }
 
     // 4 x 1 needs its own calc
@@ -427,15 +448,15 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
       }
       if (currentRotation % 2 == 0) {
         // rotation 2 or 4
-        posY = Math.round(
+        posY = Math.floor(
           (currentSprite.position.y - 2 * BOARDPIECEHEIGHT) / BOARDPIECEHEIGHT,
         );
       } else {
         // rotation 1 or 3
         posY =
           currentRotation == 1
-            ? Math.round(currentSprite.position.y / BOARDPIECEHEIGHT)
-            : Math.round(
+            ? Math.floor(currentSprite.position.y / BOARDPIECEHEIGHT)
+            : Math.floor(
                 (currentSprite.position.y - BOARDPIECEHEIGHT) /
                   BOARDPIECEHEIGHT,
               );
@@ -472,15 +493,15 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
       // }
     } else {
       if (currentRotation % 2 == 0) {
-        bottomPosY = Math.round(
+        bottomPosY = Math.floor(
           (currentSprite.position.y + 2 * BOARDPIECEHEIGHT) / BOARDPIECEHEIGHT,
         );
       } else if (currentRotation == 1) {
-        bottomPosY = Math.round(
+        bottomPosY = Math.floor(
           (currentSprite.position.y + BOARDPIECEHEIGHT) / BOARDPIECEHEIGHT,
         );
       } else {
-        bottomPosY = Math.round(currentSprite.position.y / BOARDPIECEHEIGHT);
+        bottomPosY = Math.floor(currentSprite.position.y / BOARDPIECEHEIGHT);
       }
     }
     // our current block based on its current rotation, 1 = no rotation
@@ -500,14 +521,6 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
         for (let col = 0; col < currentBlockMatrix[row].length; col++) {
           // check if our blockMatrix position is filled
           if (currentBlockMatrix[row][col]) {
-            // console.log(
-            //   "x pos: ",
-            //   posX,
-            //   "y pos: ",
-            //   posY,
-            //   "bottom pos:",
-            //   bottomPosY,
-            // );
             const boardX = posX + col;
             const boardY = posY + row; // our piece stops when it reaches a filled piece so we want to set it to that piece - 1
             // ahhh we gotta switch it up since it's row, col intead of col, row which would be x,y
@@ -547,19 +560,15 @@ import { Application, Container, Assets, Sprite, Point } from "pixi.js";
             // okay these three cases should be split into two sections with the first two calling addPieceToBoard but not stopping
             // until after while the other should remain the same.
             // so check if boardY === 1 then reduce it by one instead of checking early since that messes up our gui.
-            console.log("BottomPOS: ", bottomPosY);
 
+            // Mostly split these two if statements to help debug issues. Combine later
             if (bottomPosY >= boardMap.length - 1) {
               console.log("hiiiiii");
               addPieceToBoard();
               return true;
             }
             // more of a check at the bottom rather then a top end of game check.
-            if (
-              boardY > BOARDPIECEHEIGHT &&
-              (boardMap[boardY][boardX] === 1 ||
-                boardMap[boardY][boardX] === -1)
-            ) {
+            if (boardY > 2 && boardMap[boardY + 1][boardX] === 1) {
               console.log("hoooooooooooo");
               addPieceToBoard();
               return true;

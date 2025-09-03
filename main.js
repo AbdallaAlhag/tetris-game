@@ -20,6 +20,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 //      - 4 x 1 don't work with bottom border and left side, fix but bottom border works for the rest! => Done
 //    - last roatation does not work correctly. => Done
 //    - fix boardmap not updating properly, sometimes off by one index. => Done
+//    - fix off one by index for rotation 3 and 4. off by one x for position 3 and off by one y for position 4. => Done
 
 (async () => {
   const app = new Application();
@@ -179,11 +180,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     }
   }
   console.log(boardMap);
-  // index 1 position 4
-  // index 2 position 4
-  // index 4 position 4
-  // index 5 position 4
-  // index 6. pos 4 is visually one down
+
   let currentIndex = 6;
   let currentSprite = pieces[currentIndex];
   let shifted = false;
@@ -299,7 +296,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       currentSprite.position.y -= kick.y;
     }
   }
-
+  let drop = BOTTOM - BOARDPIECEHEIGHT;
   function pieceControls() {
     if (KEYS["ArrowUp"]) {
       currentSprite.angle = currentSprite.angle + 90;
@@ -330,7 +327,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       KEYS["ArrowDown"] = false;
     }
     if (KEYS["Space"]) {
-      currentSprite.y = BOTTOM - BOARDPIECEHEIGHT;
+      currentSprite.y = drop;
       KEYS["Space"] = false;
     }
   }
@@ -544,6 +541,47 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       console.table(boardMap);
     }
 
+    // let's also determine the drop position while we check for collision.
+    // we can search our boardmap from bottom to top to find the values under our current column that do not collide.
+    // top left = posY, posX where posY is row and posX is colmn
+    let dropFound = false;
+    drop = BOTTOM - BOARDPIECEHEIGHT;
+    for (let ROW = boardMap.length - 1; ROW > 1; ROW--) {
+      let COL = posX;
+      let count = 0;
+      if (dropFound) break;
+      for (let r = 0; r < currentBlockMatrix.length; r++) {
+        for (let c = 0; c < currentBlockMatrix[r].length; c++) {
+          if (currentBlockMatrix[r][c]) {
+            const boardX = COL + c;
+            const boardY = ROW + r;
+
+            if (boardY >= 0 && boardY <= 21 && boardX <= 11) {
+              if (
+                bottomPosY < boardMap.length - 1 &&
+                boardY > 1 &&
+                boardMap[boardY][boardX] !== 1 &&
+                boardMap[boardY][boardX] !== -1
+              ) {
+                count++;
+                if (count == 4) {
+                  dropFound = true;
+                  // drop = bottomPosY + ROW;
+                  drop = boardY * BOARDPIECEHEIGHT;
+                  // drop should be a value above or equal to 20
+                  // our orignal drop was BOTTOM - BOARDPIECEHEIGHT which was 31 pixels
+                  // i forget the length of bottom but we need to make an equation that works on pixels not array indices.
+                  console.log(
+                    `drop: ${drop}, boardX: ${boardX}, boardY: ${boardY}`,
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     // console.log(posY, posX);
     for (let row = 0; row < currentBlockMatrix.length; row++) {
       for (let col = 0; col < currentBlockMatrix[row].length; col++) {
@@ -568,7 +606,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
               return true;
             }
             // more of a check at the bottom rather then a top end of game check.
-            if (boardY > 2 && boardMap[boardY + 1][boardX] === 1) {
+            if (boardY > 1 && boardMap[boardY + 1][boardX] === 1) {
               console.log("hoooooooooooo");
               addPieceToBoard();
               return true;

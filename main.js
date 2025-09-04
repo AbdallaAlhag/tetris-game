@@ -1,7 +1,6 @@
 import { Application, Container, Assets, Sprite } from "pixi.js";
 
 // TODO:
-// add single piece
 //  - piece moving down (left or right) => done
 //  - ability to rotate (up) => Done
 //  - speed up button (down) => Done
@@ -11,7 +10,15 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 //  - Create a system that works with the current piece => done
 //  - drop pieces and create new pieces => done
 //  - add collision to blocks => done
-//  - add collision based on shape with grid map => in progress
+//  - add collision based on shape with grid map => Done
+//  Current:
+//  - work on line clearing;
+//  - point stystem or levels
+//  - Next 4 piece indicator
+//  - BONUS:
+//    - reverse button
+//    - bomb piece
+
 //  - BUGS:
 //    - WORK ON WALL COLLISION AND PIECE COLLISION WITH ROTATION IN MIND! => Done
 //      - little weird as it kicks two pieces some times but no out of bounds pieces
@@ -22,6 +29,8 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 //    - fix boardmap not updating properly, sometimes off by one index. => Done
 //    - fix off one by index for rotation 3 and 4. off by one x for position 3 and off by one y for position 4. => Done
 //    - fix ghost piece wall collision and rotation.
+//    - drop prediction should show the lowest we can drop from top to bottom and stop before piece collision not bottom to top which
+//    - game doesn't break or end when pieces stack at the top.
 
 (async () => {
   const app = new Application();
@@ -29,8 +38,8 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 
   await app.init({
     resizeTo: window,
-    backgroundColor: 0xd3d3d3,
     antialias: true,
+    backgroundAlpha: 0, // keep transparent if you want CSS background behind
     // resolution: window.devicePixelRatio || 1,
   });
   app.canvas.style.position = "absolute";
@@ -56,12 +65,41 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   button.style.cursor = "pointer";
   button.style.zIndex = "1000"; // higher than the Pixi canvas
   document.body.appendChild(button);
+
+  const randomIndex = Math.floor(Math.random() * 6) + 1; // 1..7
+  const gameBackgroundTexture = await Assets.load(
+    `${BASEURL}images/natureBackground${randomIndex}.jpeg`,
+  );
+  const gameBackgroundSprite = Sprite.from(gameBackgroundTexture);
+  gameBackgroundSprite.alpha = 0.9;
+
+  function cover() {
+    const sw = app.screen.width; // in CSS pixels
+    const sh = app.screen.height;
+    const iw = gameBackgroundTexture.source.width;
+    const ih = gameBackgroundTexture.source.height;
+
+    let bg = gameBackgroundSprite;
+    const scale = Math.max(sw / iw, sh / ih);
+    bg.width = iw * scale;
+    bg.height = ih * scale;
+
+    // center
+    bg.x = (sw - bg.width) * 0.5;
+    bg.y = (sh - bg.height) * 0.5;
+  }
+  cover();
+  window.addEventListener("resize", cover);
+
+  app.stage.addChildAt(gameBackgroundSprite, 0);
   // single block is 64 x 64 pixels,
   // board is 768 x 1408 pixels, which is 12 pieces width and 22 pieces height
   // but board is also 10 width and 20 high without border
   // let's make a container this time
   const board = new Container();
   app.stage.addChild(board);
+  const nextBoard = new Container();
+  app.stage.addChild(nextBoard);
 
   const backgroundTexture = await Assets.load(BASEURL + "/images/Board.png");
   const backGroundSprite = Sprite.from(backgroundTexture);
@@ -71,6 +109,17 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 
   board.pivot.set(board.width / 2, board.height / 2);
   board.position.set(app.screen.width / 2, app.screen.height / 2);
+
+  // next container info.
+  const nextBoardTexture = await Assets.load(BASEURL + "/images/nextBoard.png");
+  const nextBoardBackgroundSprite = Sprite.from(nextBoardTexture);
+  nextBoardBackgroundSprite.scale.set(0.5, 0.5);
+  nextBoard.addChild(nextBoardBackgroundSprite);
+  nextBoard.pivot.set(0, nextBoard.height / 2);
+  nextBoard.position.set(
+    app.screen.width / 2 + board.width / 2,
+    app.screen.height / 3.45,
+  );
 
   // Top and Bottom x of the board
   const BOARDPIECEHEIGHT = board.height / 22;
@@ -199,11 +248,31 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   }
   console.log(boardMap);
 
-  let currentIndex = 1;
+  let pieceQueue = [
+    Math.floor(Math.random() * 7),
+    Math.floor(Math.random() * 7),
+    Math.floor(Math.random() * 7),
+    Math.floor(Math.random() * 7),
+  ];
+  let currentIndex = Math.floor(Math.random() * 7);
   let currentSprite = pieces[currentIndex];
   let currentGhost = ghostPieces[currentIndex];
   let shifted = false;
 
+  // add initial pieces to our nextBoard and then we probably should make a function that updates it and call it when we change pieces.
+  function updateNextBoard() {
+    nextBoard.removeChildren(1, 4);
+    for (let i = 0; i < 4; i++) {
+      const pieceTexture = textures[pieceQueue[i]];
+      const pieceSprite = Sprite.from(pieceTexture);
+      pieceSprite.scale.set(0.5);
+      pieceSprite.x = MIDDLEX / 2.5;
+      pieceSprite.position.y =
+        (nextBoard.height / 4) * i + 0.05 * nextBoard.height;
+      nextBoard.addChild(pieceSprite);
+    }
+  }
+  updateNextBoard();
   // Add keyboard input
   const KEYS = {};
   window.addEventListener("keydown", (e) => {
@@ -303,6 +372,8 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     for (let kick of kicks) {
       currentSprite.position.x += kick.x;
       currentSprite.position.y += kick.y;
+      currentGhost.position.x += kick.x;
+      currentGhost.position.y += kick.y;
 
       let kickedValid =
         calculateBorder("-") > BOARDPIECEWIDTH &&
@@ -313,6 +384,8 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 
       currentSprite.position.x -= kick.x;
       currentSprite.position.y -= kick.y;
+      currentGhost.position.x -= kick.x;
+      currentGhost.position.y -= kick.y;
     }
   }
   let drop = BOTTOM - BOARDPIECEHEIGHT;
@@ -547,7 +620,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       // console.table(currentBlockMatrix);
     }
     function addPieceToBoard() {
-      console.table(currentBlockMatrix);
+      // console.table(currentBlockMatrix);
       for (let row = 0; row < currentBlockMatrix.length; row++) {
         for (let col = 0; col < currentBlockMatrix[row].length; col++) {
           // check if our blockMatrix position is filled
@@ -558,21 +631,21 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
             // but we do y,x in our array.
             if (boardY <= 21 && boardX <= 11) {
               boardMap[boardY][boardX] = 1;
-              console.log(
-                "boardY, boardX: ",
-                boardY,
-                boardX,
-                "posY, posX: ",
-                posY,
-                posX,
-                "bottom pos y; ",
-                bottomPosY,
-              );
+              // console.log(
+              //   "boardY, boardX: ",
+              //   boardY,
+              //   boardX,
+              //   "posY, posX: ",
+              //   posY,
+              //   posX,
+              //   "bottom pos y; ",
+              //   bottomPosY,
+              // );
             }
           }
         }
       }
-      console.table(boardMap);
+      // console.table(boardMap);
     }
 
     // let's also determine the drop position while we check for collision.
@@ -637,13 +710,11 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 
             // Mostly split these two if statements to help debug issues. Combine later
             if (bottomPosY >= boardMap.length - 1) {
-              console.log("hiiiiii");
               addPieceToBoard();
               return true;
             }
             // more of a check at the bottom rather then a top end of game check.
             if (boardY > 1 && boardMap[boardY + 1][boardX] === 1) {
-              console.log("hoooooooooooo");
               addPieceToBoard();
               return true;
             }
@@ -745,17 +816,17 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   function pieceLoop() {
     if (gridCollision(pieceGrids[currentIndex])) {
       let randomIndex = Math.floor(Math.random() * 7);
-      console.log("reachedbottom");
       app.ticker.remove(pieceControls);
       // resset our piece grids to original placements
       pieceGrids = structuredClone(originalPieceGrids);
       shifted = false;
       board.removeChild(currentGhost);
-      // currentSprite = cloneSprite(pieces[Math.floor(Math.random() * 7)]);
-      currentSprite = cloneSprite(randomIndex);
-      currentGhost = cloneGhost(randomIndex);
+      currentIndex = pieceQueue.shift();
+      currentSprite = cloneSprite(currentIndex);
+      currentGhost = cloneGhost(currentIndex);
+      pieceQueue.push(randomIndex);
+      updateNextBoard();
       currentRotation = 1;
-      currentIndex = randomIndex;
       board.addChild(currentSprite);
       board.addChild(currentGhost);
       bottomReached = true;

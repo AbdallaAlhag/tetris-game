@@ -82,25 +82,41 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   //  Load all the peices
   // let pieces = [iterable[Symbol.iterator: self.anchor[0], self.anchor[1];
   let pieces = [];
+  let ghostPieces = [];
   let textures = [];
+  let ghostTextures = [];
   let currentRotation = 1;
   for (let i = 0; i < 7; i++) {
     // console.log(BASEURL + `images/piece${i}.png`);
     const pieceTexture = await Assets.load(BASEURL + `images/piece${i}.png`);
+    const ghostTexture = await Assets.load(BASEURL + `images/ghost${i}.png`);
     textures.push(pieceTexture);
+    ghostTextures.push(ghostTextures);
     const pieceSprite = Sprite.from(pieceTexture);
+    const ghostSprite = Sprite.from(ghostTexture);
     pieceSprite.scale.set(0.5);
-    pieceSprite.id = "piece";
+    ghostSprite.scale.set(0.5);
     pieceSprite.x = MIDDLEX;
+    ghostSprite.x = MIDDLEX;
+
+    // modify the ghost to show up better.
+    ghostSprite.alpha = 0.75;
+
     if ([1, 2, 4, 5, 6].includes(i)) {
       pieceSprite.anchor.set(2 / 3, 1 / 2); // blocks [3,2]
       pieces.push(pieceSprite);
+      ghostSprite.anchor.set(2 / 3, 1 / 2);
+      ghostPieces.push(ghostSprite);
     } else if (i == 0) {
       pieceSprite.anchor.set(1 / 2, 0); // block [4,1]
       pieces.push(pieceSprite);
+      ghostSprite.anchor.set(1 / 2, 0);
+      ghostPieces.push(ghostSprite);
     } else {
       pieceSprite.anchor.set(1 / 2, 1 / 2); // block [2,3]
       pieces.push(pieceSprite);
+      ghostSprite.anchor.set(1 / 2, 1 / 2);
+      ghostPieces.push(ghostSprite);
     }
   }
 
@@ -181,8 +197,9 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   }
   console.log(boardMap);
 
-  let currentIndex = 6;
+  let currentIndex = 1;
   let currentSprite = pieces[currentIndex];
+  let currentGhost = ghostPieces[currentIndex];
   let shifted = false;
 
   // Add keyboard input
@@ -297,9 +314,11 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     }
   }
   let drop = BOTTOM - BOARDPIECEHEIGHT;
+  currentGhost.y = drop;
   function pieceControls() {
     if (KEYS["ArrowUp"]) {
       currentSprite.angle = currentSprite.angle + 90;
+      currentGhost.angle = currentGhost.angle + 90;
       checkRotationValid();
       currentRotation++;
       currentRotation = ((currentRotation - 1) % 4) + 1;
@@ -311,6 +330,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       if (spriteLeft > BOARDPIECEWIDTH) {
         // greater than the boarder piece,
         currentSprite.x -= BOARDPIECEWIDTH;
+        currentGhost.x -= BOARDPIECEWIDTH;
       }
       KEYS["ArrowLeft"] = false;
     }
@@ -319,6 +339,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       if (spriteRight < RIGHTBORDER - BOARDPIECEWIDTH) {
         // greater than the boarder piece,
         currentSprite.x += BOARDPIECEWIDTH;
+        currentGhost.x += BOARDPIECEWIDTH;
       }
       KEYS["ArrowRight"] = false;
     }
@@ -334,6 +355,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   app.ticker.add(pieceControls);
 
   board.addChild(currentSprite);
+  board.addChild(currentGhost);
 
   let bottomReached = false;
 
@@ -568,6 +590,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
                   dropFound = true;
                   // drop = bottomPosY + ROW;
                   drop = boardY * BOARDPIECEHEIGHT;
+                  currentGhost.y = drop;
                   // drop should be a value above or equal to 20
                   // our orignal drop was BOTTOM - BOARDPIECEHEIGHT which was 31 pixels
                   // i forget the length of bottom but we need to make an equation that works on pixels not array indices.

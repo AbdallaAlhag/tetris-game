@@ -6,21 +6,22 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 //  - ability to rotate (up) => Done
 //  - speed up button (down) => Done
 //  - ability to jump down instantly => Done
-//    - with shadow piece to showcase where it will land
+//    - with shadow piece to showcase where it will land => Done
 //  - Add all pieces => done
 //  - Create a system that works with the current piece => done
 //  - drop pieces and create new pieces => done
 //  - add collision to blocks => done
 //  - add collision based on shape with grid map => in progress
-//  - bugs:
+//  - BUGS:
 //    - WORK ON WALL COLLISION AND PIECE COLLISION WITH ROTATION IN MIND! => Done
 //      - little weird as it kicks two pieces some times but no out of bounds pieces
-//    - space drop bugged, doesn't continue the loop
+//    - space drop bugged, doesn't continue the loop => Done
 //    - Work on bottom border due to rotation.
 //      - 4 x 1 don't work with bottom border and left side, fix but bottom border works for the rest! => Done
 //    - last roatation does not work correctly. => Done
 //    - fix boardmap not updating properly, sometimes off by one index. => Done
 //    - fix off one by index for rotation 3 and 4. off by one x for position 3 and off by one y for position 4. => Done
+//    - fix ghost piece wall collision and rotation.
 
 (async () => {
   const app = new Application();
@@ -91,7 +92,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     const pieceTexture = await Assets.load(BASEURL + `images/piece${i}.png`);
     const ghostTexture = await Assets.load(BASEURL + `images/ghost${i}.png`);
     textures.push(pieceTexture);
-    ghostTextures.push(ghostTextures);
+    ghostTextures.push(ghostTexture);
     const pieceSprite = Sprite.from(pieceTexture);
     const ghostSprite = Sprite.from(ghostTexture);
     pieceSprite.scale.set(0.5);
@@ -101,6 +102,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 
     // modify the ghost to show up better.
     ghostSprite.alpha = 0.75;
+    ghostSprite.id = "ghost";
 
     if ([1, 2, 4, 5, 6].includes(i)) {
       pieceSprite.anchor.set(2 / 3, 1 / 2); // blocks [3,2]
@@ -382,7 +384,7 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
 
   dropPiece();
 
-  function cloneSprite(index = Math.floor(Math.random() * 7)) {
+  function cloneSprite(index) {
     let texture = textures[index];
     let template = pieces[index];
     const s = new Sprite(texture);
@@ -390,7 +392,17 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     s.anchor.set(template.anchor.x, template.anchor.y);
     s.scale.set(template.scale.x, template.scale.y);
     s.x = MIDDLEX;
-    s.id = "piece";
+    return s;
+  }
+  function cloneGhost(index) {
+    let texture = ghostTextures[index];
+    let template = ghostPieces[index];
+    const s = new Sprite(texture);
+
+    s.anchor.set(template.anchor.x, template.anchor.y);
+    s.scale.set(template.scale.x, template.scale.y);
+    s.x = MIDDLEX;
+    s.alpha = 0.75;
     return s;
   }
 
@@ -594,9 +606,10 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
                   // drop should be a value above or equal to 20
                   // our orignal drop was BOTTOM - BOARDPIECEHEIGHT which was 31 pixels
                   // i forget the length of bottom but we need to make an equation that works on pixels not array indices.
-                  console.log(
-                    `drop: ${drop}, boardX: ${boardX}, boardY: ${boardY}`,
-                  );
+
+                  // console.log(
+                  //   `drop: ${drop}, boardX: ${boardX}, boardY: ${boardY}`,
+                  // );
                 }
               }
             }
@@ -737,11 +750,14 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
       // resset our piece grids to original placements
       pieceGrids = structuredClone(originalPieceGrids);
       shifted = false;
+      board.removeChild(currentGhost);
       // currentSprite = cloneSprite(pieces[Math.floor(Math.random() * 7)]);
       currentSprite = cloneSprite(randomIndex);
+      currentGhost = cloneGhost(randomIndex);
       currentRotation = 1;
       currentIndex = randomIndex;
       board.addChild(currentSprite);
+      board.addChild(currentGhost);
       bottomReached = true;
       app.ticker.add(pieceControls);
     }

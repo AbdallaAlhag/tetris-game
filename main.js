@@ -817,6 +817,9 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
     if (gridCollision(pieceGrids[currentIndex])) {
       let randomIndex = Math.floor(Math.random() * 7);
       app.ticker.remove(pieceControls);
+
+      // reached bottom.  but we have to replace the tetris piece with block by block pieces to make it easier to remove.
+      //
       // resset our piece grids to original placements
       pieceGrids = structuredClone(originalPieceGrids);
       shifted = false;

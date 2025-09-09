@@ -48,7 +48,7 @@ import {
     `${BASEURL}images/natureBackground${randomIndex}.jpeg`,
   );
   const gameBackgroundSprite = Sprite.from(gameBackgroundTexture);
-  // gameBackgroundSprite.alpha = 0.9;
+  gameBackgroundSprite.alpha = 0.9;
 
   function cover() {
     const sw = app.screen.width; // in CSS pixels
@@ -139,7 +139,12 @@ import {
   // blockSprite.position.set(32, 32);
 
   // let n = Math.floor(Math.random() * 7);
-  let n = 2;
+  let queue = [];
+  for (let i = 0; i < 5; i++) {
+    // queue.push(Math.floor(Math.random() * 7));
+    queue.push(0);
+  }
+  let n = queue.shift();
   if (a[0].x === 0) {
     for (let i = 0; i < 4; i++) {
       a[i].x = Math.floor(figures[n][i] % 2) + 4;
@@ -188,6 +193,34 @@ import {
       }
     }
   }
+  function updateNextBoard() {
+    nextBoard.removeChildren();
+    nextBoard.addChild(nextBoardBackgroundSprite);
+    let gap = 10;
+    queue.forEach((blockIndex) => {
+      for (let i = 0; i < 4; i++) {
+        const tempTexture = new Texture({
+          source: blockSprite.texture.source,
+          frame: new Rectangle(blockIndex * 64, 0, 64, 64),
+        });
+        let x = Math.floor(figures[blockIndex][i] % 2);
+        let y = Math.floor(figures[blockIndex][i] / 2);
+
+        const tempSprite = new Sprite(tempTexture);
+        tempSprite.height = 32;
+        tempSprite.width = 32;
+        tempSprite.scale.set(0.25);
+        tempSprite.position.set(
+          (nextBoard.width - 32) / 2 + x * 18,
+          gap + y * 18,
+        );
+        nextBoard.addChild(tempSprite);
+      }
+
+      gap += 90;
+    });
+  }
+  updateNextBoard();
 
   // ----------------------Game Loop And Game Algo------------------------
   app.ticker.add((delta) => {
@@ -230,7 +263,9 @@ import {
           field[b[i].y][b[i].x] = colorNum;
         }
         // colorNum = 1 + Math.floor(Math.random() * 7);
-        let n = Math.floor(Math.random() * 7);
+        // let n = Math.floor(Math.random() * 7);
+        let n = queue.shift();
+        queue.push(Math.floor(Math.random() * 7));
         colorNum = n + 1;
         for (let i = 0; i < 4; i++) {
           a[i].x = (figures[n][i] % 2) + 4;
@@ -239,6 +274,7 @@ import {
               ? Math.floor(figures[n][i] / 2)
               : Math.floor(figures[n][i] / 2) - 1;
         }
+        updateNextBoard();
       }
       timer = 0;
     }
@@ -296,6 +332,5 @@ import {
       tempSprite.position.set(a[i].x * 32 + 32, a[i].y * 32 + 32);
       board.addChild(tempSprite);
     }
-    app.ticker.stop();
   });
 })();

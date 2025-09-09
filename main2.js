@@ -1,4 +1,11 @@
-import { Application, Container, Assets, Sprite } from "pixi.js";
+import {
+  Application,
+  Container,
+  Assets,
+  Sprite,
+  Rectangle,
+  Texture,
+} from "pixi.js";
 
 (async () => {
   // ----------------------Create App-------------------------
@@ -86,6 +93,192 @@ import { Application, Container, Assets, Sprite } from "pixi.js";
   nextBoard.pivot.set(0, nextBoard.height / 2);
   nextBoard.position.set(
     app.screen.width / 2 + board.width / 2,
-    app.screen.height / 3.45,
+    app.screen.height / 3.25,
   );
+
+  // ----------------------Initiliaze Board and Piece Arrays + Controls and Variables------------------------
+  const M = 20;
+  const N = 10;
+
+  const field = Array.from({ length: M }, () => Array(N).fill(0));
+  console.log(field);
+
+  const a = Array.from({ length: 4 }, () => ({ x: 0, y: 0 }));
+  const b = Array.from({ length: 4 }, () => ({ x: 0, y: 0 }));
+  console.table(a);
+
+  const figures = [
+    [1, 3, 5, 7], // I
+    [2, 4, 5, 7], // Z
+    [3, 5, 4, 6], // S
+    [3, 5, 4, 7], // T
+    [2, 3, 5, 7], // L
+    [3, 5, 7, 6], // J
+    [2, 3, 4, 5], // O
+  ];
+
+  let blockTexture = await Assets.load(BASEURL + "images/block.png");
+  let blockSprite = Sprite.from(blockTexture);
+  blockSprite.scale.set(0.5, 0.5);
+
+  // Grab one block color for our block sprite  32 x 32, interesting how we have to grab 64 x 64 but height and width is true
+  // to scale which is half so 32 x 32
+  blockSprite.texture.frame = new Rectangle(0, 0, 64, 64);
+  blockSprite.height = 32;
+  blockSprite.width = 32;
+  blockSprite.texture.updateUvs();
+
+  // Interesting we need to offset blockSprite when initially adding it. Just for intial piece test.
+  // board.addChild(blockSprite);
+  // blockSprite.position.set(32, 32);
+
+  let n = Math.floor(Math.random() * 7);
+  if (a[0].x === 0) {
+    for (let i = 0; i < 4; i++) {
+      a[i].x = Math.floor(figures[n][i] % 2);
+      a[i].y = Math.floor(figures[n][i] / 2);
+    }
+  }
+  console.table(a);
+  let dx = 0,
+    rotate = 0,
+    colorNum = 1,
+    timer = 0,
+    delay = 0.3;
+
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "ArrowUp") rotate = true;
+    else if (e.code === "ArrowLeft") dx = -1;
+    else if (e.code === "ArrowRight") dx = 1;
+  });
+  let keys = {};
+  window.addEventListener("keydown", (e) => {
+    if (e.code == "ArrowDown") keys[e.code] = true;
+  });
+  window.addEventListener("keyup", (e) => {
+    if (e.code == "ArrowDown") keys[e.code] = false;
+  });
+
+  function checkCollision() {
+    for (let i = 0; i < 4; i++) {
+      const x = Math.floor(a[i].x);
+      const y = Math.floor(a[i].y);
+      if (x < 0 || x >= N || y >= M) return false;
+      if (y >= 0 && field[y][x]) return false;
+    }
+    return true;
+  }
+
+  function reverseActionCheck() {
+    if (!checkCollision()) {
+      for (let i = 0; i < 4; i++) {
+        a[i] = { x: b[i].x, y: b[i].y };
+      }
+    }
+  }
+
+  // ----------------------Game Loop And Game Algo------------------------
+  app.ticker.add((delta) => {
+    const time = delta.deltaTime / 60;
+    timer += time;
+    if (keys["ArrowDown"]) {
+      delay = 0.05;
+    } else {
+      delay = 0.3;
+    }
+
+    // -----------------Movement--------------------
+    for (let i = 0; i < 4; i++) {
+      b[i] = { x: a[i].x, y: a[i].y };
+      a[i].x += dx;
+    }
+
+    reverseActionCheck();
+    // -----------------Movement--------------------
+    if (rotate) {
+      let p = { x: a[1].x, y: a[1].y };
+
+      for (let i = 0; i < 4; i++) {
+        let x = a[i].y - p.y;
+        let y = a[i].x - p.x;
+        a[i].x = p.x - x;
+        a[i].y = p.y + y;
+      }
+      reverseActionCheck();
+    }
+    // -----------------Tick--------------------
+    if (timer > delay) {
+      for (let i = 0; i < 4; i++) {
+        // b[i] = a[i]
+        b[i] = { x: a[i].x, y: a[i].y };
+        a[i].y += 1;
+      }
+      if (!checkCollision()) {
+        for (let i = 0; i < 4; i++) {
+          field[b[i].y][b[i].x] = colorNum;
+        }
+        colorNum = 1 + Math.floor(Math.random() * 7);
+        let n = Math.floor(Math.random() * 7);
+        for (let i = 0; i < 4; i++) {
+          a[i].x = figures[n][i] % 2;
+          a[i].y = Math.floor(figures[n][i] / 2);
+        }
+      }
+      timer = 0;
+    }
+
+    // reset variables before we draw
+    dx = 0;
+    rotate = 0;
+    delay = 0.3;
+
+    // -----------------Check Lines--------------------
+    let k = M - 1;
+    for (let i = M - 1; i > 0; i--) {
+      let count = 0;
+      for (let j = 0; j < N; j++) {
+        if (field[i][j]) count++;
+        field[k][j] = field[i][j];
+      }
+      if (count < N) k--;
+    }
+    // -----------------Drawing--------------------
+    board.removeChildren();
+    board.addChild(backGroundSprite);
+
+    // Place tetris
+    for (let i = 0; i < M; i++) {
+      for (let j = 0; j < N; j++) {
+        if (field[i][j] == 0) continue;
+        //
+        // s.texture.frame = new Rectangle(field[i][j] * 18, 0, 18, 18);
+        // s.texture.updateUvs();
+        // const tempSprite = new Sprite(s.texture);
+        const tempTexture = new Texture({
+          source: blockSprite.texture.source,
+          frame: new Rectangle(field[i][j] * 64, 0, 64, 64),
+        });
+        const tempSprite = new Sprite(tempTexture);
+
+        tempSprite.height = 18;
+        tempSprite.width = 18;
+        tempSprite.scale.set(0.5);
+        tempSprite.position.set(j * 32 + 32, i * 32 + 32); // 28, 31 is baord offset
+        board.addChild(tempSprite);
+      }
+    }
+    // Draw our tetris piece
+    for (let i = 0; i < 4; i++) {
+      const tempTexture = new Texture({
+        source: blockSprite.texture.source,
+        frame: new Rectangle(colorNum * 64, 0, 64, 64),
+      });
+      const tempSprite = new Sprite(tempTexture);
+      tempSprite.height = 32;
+      tempSprite.width = 32;
+      tempSprite.scale.set(0.5);
+      tempSprite.position.set(a[i].x * 32 + 32, a[i].y * 32 + 32); // still a little consufed why we don't have to offset y but it works for now
+      board.addChild(tempSprite);
+    }
+  });
 })();

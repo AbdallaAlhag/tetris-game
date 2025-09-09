@@ -116,6 +116,12 @@ import {
     [3, 5, 7, 6], // J
     [2, 3, 4, 5], // O
   ];
+  //
+  // example figure =
+  // [1][2]
+  // [3][4]
+  // [5][6]
+  // [6][8]
 
   let blockTexture = await Assets.load(BASEURL + "images/block.png");
   let blockSprite = Sprite.from(blockTexture);
@@ -132,17 +138,23 @@ import {
   // board.addChild(blockSprite);
   // blockSprite.position.set(32, 32);
 
-  let n = Math.floor(Math.random() * 7);
+  // let n = Math.floor(Math.random() * 7);
+  let n = 2;
   if (a[0].x === 0) {
     for (let i = 0; i < 4; i++) {
-      a[i].x = Math.floor(figures[n][i] % 2);
-      a[i].y = Math.floor(figures[n][i] / 2);
+      a[i].x = Math.floor(figures[n][i] % 2) + 4;
+
+      a[i].y =
+        n == 0
+          ? Math.floor(figures[n][i] / 2)
+          : Math.floor(figures[n][i] / 2) - 1;
     }
   }
   console.table(a);
   let dx = 0,
     rotate = 0,
-    colorNum = 1,
+    // colorNum = 1,
+    colorNum = n + 1,
     timer = 0,
     delay = 0.3;
 
@@ -217,11 +229,15 @@ import {
         for (let i = 0; i < 4; i++) {
           field[b[i].y][b[i].x] = colorNum;
         }
-        colorNum = 1 + Math.floor(Math.random() * 7);
+        // colorNum = 1 + Math.floor(Math.random() * 7);
         let n = Math.floor(Math.random() * 7);
+        colorNum = n + 1;
         for (let i = 0; i < 4; i++) {
-          a[i].x = figures[n][i] % 2;
-          a[i].y = Math.floor(figures[n][i] / 2);
+          a[i].x = (figures[n][i] % 2) + 4;
+          a[i].y =
+            n == 0
+              ? Math.floor(figures[n][i] / 2)
+              : Math.floor(figures[n][i] / 2) - 1;
         }
       }
       timer = 0;
@@ -256,14 +272,14 @@ import {
         // const tempSprite = new Sprite(s.texture);
         const tempTexture = new Texture({
           source: blockSprite.texture.source,
-          frame: new Rectangle(field[i][j] * 64, 0, 64, 64),
+          frame: new Rectangle((field[i][j] - 1) * 64, 0, 64, 64),
         });
         const tempSprite = new Sprite(tempTexture);
 
         tempSprite.height = 18;
         tempSprite.width = 18;
         tempSprite.scale.set(0.5);
-        tempSprite.position.set(j * 32 + 32, i * 32 + 32); // 28, 31 is baord offset
+        tempSprite.position.set(j * 32 + 32, i * 32 + 32);
         board.addChild(tempSprite);
       }
     }
@@ -271,14 +287,15 @@ import {
     for (let i = 0; i < 4; i++) {
       const tempTexture = new Texture({
         source: blockSprite.texture.source,
-        frame: new Rectangle(colorNum * 64, 0, 64, 64),
+        frame: new Rectangle((colorNum - 1) * 64, 0, 64, 64),
       });
       const tempSprite = new Sprite(tempTexture);
       tempSprite.height = 32;
       tempSprite.width = 32;
       tempSprite.scale.set(0.5);
-      tempSprite.position.set(a[i].x * 32 + 32, a[i].y * 32 + 32); // still a little consufed why we don't have to offset y but it works for now
+      tempSprite.position.set(a[i].x * 32 + 32, a[i].y * 32 + 32);
       board.addChild(tempSprite);
     }
+    app.ticker.stop();
   });
 })();

@@ -163,14 +163,16 @@ import {
   }
   console.table(a);
   let dx = 0,
-    rotate = 0,
+    rotate = false,
     // colorNum = 1,
     colorNum = n + 1,
     timer = 0,
-    delay = 0.3;
+    delay = 0.3,
+    drop = false;
 
   window.addEventListener("keydown", (e) => {
     if (e.code === "ArrowUp") rotate = true;
+    else if (e.code === "Space") drop = true;
     else if (e.code === "ArrowLeft") dx = -1;
     else if (e.code === "ArrowRight") dx = 1;
   });
@@ -227,8 +229,7 @@ import {
     });
   }
 
-  function placeGhost() {
-    // i think the row should be the the first x value we run into.
+  function calculateDrop() {
     let drop = M;
     for (let i = 0; i < 4; i++) {
       let x = a[i].x;
@@ -240,19 +241,22 @@ import {
       }
       drop = Math.min(drop, d);
     }
-    // s.texture.frame = new Rectangle(field[i][j] * 18, 0, 18, 18);
-    // s.texture.updateUvs();
-    // const tempSprite = new Sprite(s.texture);
+    return drop;
+  }
+  function placeGhost() {
+    let drop = calculateDrop();
+
     for (let i = 0; i < 4; i++) {
       let ghostSprite = Sprite.from(ghostTexture);
       ghostSprite.scale.set(0.5);
       ghostSprite.height = 32;
       ghostSprite.width = 32;
-      ghostSprite.alpha = 0.5;
+      ghostSprite.alpha = 0.7;
       ghostSprite.position.set(a[i].x * 32 + 32, (drop + a[i].y) * 32 + 32);
       board.addChild(ghostSprite);
     }
   }
+
   placeGhost();
   updateNextBoard();
 
@@ -273,7 +277,7 @@ import {
     }
 
     reverseActionCheck();
-    // -----------------Movement--------------------
+    // -----------------Rotate--------------------
     if (rotate) {
       let p = { x: a[1].x, y: a[1].y };
 
@@ -285,6 +289,18 @@ import {
       }
       reverseActionCheck();
     }
+
+    // -----------------Drop--------------------
+    if (drop) {
+      let d = calculateDrop();
+
+      for (let i = 0; i < 4; i++) {
+        b[i] = { x: a[i].x, y: a[i].y };
+        a[i].y = d + a[i].y;
+      }
+      reverseActionCheck();
+    }
+
     // -----------------Tick--------------------
     if (timer > delay) {
       for (let i = 0; i < 4; i++) {
@@ -315,7 +331,8 @@ import {
 
     // reset variables before we draw
     dx = 0;
-    rotate = 0;
+    rotate = false;
+    drop = false;
     delay = 0.3;
 
     // -----------------Check Lines--------------------

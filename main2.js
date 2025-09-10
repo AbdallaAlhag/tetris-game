@@ -345,6 +345,15 @@ import {
       }
       if (count < N) k--;
     }
+
+    // check if game over?
+    for (let i = 0; i < N; i++) {
+      console.log("hi");
+      if (field[0][i]) {
+        console.log("stop");
+        app.ticker.stop();
+      }
+    }
     // -----------------Drawing--------------------
     board.removeChildren();
     board.addChild(backGroundSprite);

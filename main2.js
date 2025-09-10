@@ -123,6 +123,12 @@ import {
   // [5][6]
   // [6][8]
 
+  let ghostTexture = await Assets.load(BASEURL + "images/ghost.png");
+  // let ghostSprite = Sprite.from(ghostTexture);
+  // ghostSprite.scale.set(0.5);
+  // ghostSprite.height = 32;
+  // ghostSprite.width = 32;
+  //
   let blockTexture = await Assets.load(BASEURL + "images/block.png");
   let blockSprite = Sprite.from(blockTexture);
   blockSprite.scale.set(0.5, 0.5);
@@ -141,8 +147,8 @@ import {
   // let n = Math.floor(Math.random() * 7);
   let queue = [];
   for (let i = 0; i < 5; i++) {
-    // queue.push(Math.floor(Math.random() * 7));
-    queue.push(0);
+    queue.push(Math.floor(Math.random() * 7));
+    // queue.push(0);
   }
   let n = queue.shift();
   if (a[0].x === 0) {
@@ -220,6 +226,34 @@ import {
       gap += 90;
     });
   }
+
+  function placeGhost() {
+    // i think the row should be the the first x value we run into.
+    let drop = M;
+    for (let i = 0; i < 4; i++) {
+      let x = a[i].x;
+      let y = a[i].y;
+
+      let d = 0;
+      while (y + d + 1 < M && field[y + d + 1][x] === 0) {
+        d++;
+      }
+      drop = Math.min(drop, d);
+    }
+    // s.texture.frame = new Rectangle(field[i][j] * 18, 0, 18, 18);
+    // s.texture.updateUvs();
+    // const tempSprite = new Sprite(s.texture);
+    for (let i = 0; i < 4; i++) {
+      let ghostSprite = Sprite.from(ghostTexture);
+      ghostSprite.scale.set(0.5);
+      ghostSprite.height = 32;
+      ghostSprite.width = 32;
+      ghostSprite.alpha = 0.5;
+      ghostSprite.position.set(a[i].x * 32 + 32, (drop + a[i].y) * 32 + 32);
+      board.addChild(ghostSprite);
+    }
+  }
+  placeGhost();
   updateNextBoard();
 
   // ----------------------Game Loop And Game Algo------------------------
@@ -332,5 +366,6 @@ import {
       tempSprite.position.set(a[i].x * 32 + 32, a[i].y * 32 + 32);
       board.addChild(tempSprite);
     }
+    placeGhost();
   });
 })();

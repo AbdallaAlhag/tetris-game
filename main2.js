@@ -5,6 +5,9 @@ import {
   Sprite,
   Rectangle,
   Texture,
+  Text,
+  TextStyle,
+  Graphics,
 } from "pixi.js";
 
 (async () => {
@@ -72,6 +75,7 @@ import {
 
   // ----------------------Create Main Board-------------------------
   const board = new Container();
+
   app.stage.addChild(board);
   const nextBoard = new Container();
   app.stage.addChild(nextBoard);
@@ -85,17 +89,118 @@ import {
   board.pivot.set(board.width / 2, board.height / 2);
   board.position.set(app.screen.width / 2, app.screen.height / 2);
 
+  const boardOrigin = board.getBounds(); // object containing minX, minY, maxX, maxY
   // ----------------------Create Next Board------------------------
   const nextBoardTexture = await Assets.load(BASEURL + "/images/nextBoard.png");
   const nextBoardBackgroundSprite = Sprite.from(nextBoardTexture);
   nextBoardBackgroundSprite.scale.set(0.5, 0.5);
   nextBoard.addChild(nextBoardBackgroundSprite);
-  nextBoard.pivot.set(0, nextBoard.height / 2);
+  // nextBoard.pivot.set(0, nextBoard.height / 2);
   nextBoard.position.set(
     app.screen.width / 2 + board.width / 2,
-    app.screen.height / 3.25,
+    // app.screen.height / 3.25,
+    boardOrigin.minY,
   );
 
+  console.log(boardOrigin);
+  // ----------------------Create Score Board------------------------
+  // consist of piece per sec (x pieces, pieces/ s), lines(x/40), time(minutes(x): second(xx). milliseconds(xxx)).
+
+  // Function to get elapsed time as formatted string
+  function getElapsedTime() {
+    const now = Date.now();
+    const elapsed = now - startTime; // milliseconds passed
+
+    const minutes = Math.floor(elapsed / 60000);
+    const seconds = Math.floor((elapsed % 60000) / 1000);
+    const milliseconds = elapsed % 1000;
+
+    return `${minutes}:${String(seconds).padStart(2, "0")}.${String(milliseconds).padStart(3, "0")}`;
+  }
+  function getElapsedTimeSeconds() {
+    const now = Date.now();
+    const elapsed = now - startTime; // milliseconds passed
+
+    const seconds = Math.floor((elapsed % 60000) / 1000);
+    return seconds;
+  }
+
+  const scoreBoard = new Container();
+  app.stage.addChild(scoreBoard);
+
+  const style = new TextStyle({
+    fontFamily: "Arial",
+    fontSize: 36,
+    align: "center",
+    fill: "#ffffff",
+  });
+
+  let pieceCount = 0;
+  let lineCount = 0;
+  let startTime = Date.now();
+  let elapsedTimeSeconds = 0;
+  const piecesText = new Text({
+    text: "PIECES",
+    style: style,
+  });
+  const piecesTextLine = new Text({
+    text: `${pieceCount},  0.00/S`,
+    style: style,
+  });
+
+  const lineText = new Text({
+    text: "LINES",
+    style: style,
+  });
+  const lineTextLine = new Text({
+    text: `${lineCount}/ 40`,
+    style: style,
+  });
+  const timeText = new Text({
+    text: "TIME",
+    style: style,
+  });
+  const timeTextLine = new Text({
+    text: `${getElapsedTime()}`,
+    style: style,
+  });
+
+  scoreBoard.addChild(piecesText);
+  piecesText.position.y -= 240;
+
+  scoreBoard.addChild(piecesTextLine);
+  piecesTextLine.position.y -= 200;
+  scoreBoard.addChild(lineText);
+  lineText.position.y -= 160;
+  scoreBoard.addChild(lineTextLine);
+  lineTextLine.position.y -= 120;
+  scoreBoard.addChild(timeText);
+  timeText.position.y -= 80;
+  scoreBoard.addChild(timeTextLine);
+  timeTextLine.position.y -= 40;
+  scoreBoard.position.set(
+    boardOrigin.minX - scoreBoard.width - 10,
+    boardOrigin.maxY,
+  );
+
+  const bg = new Graphics()
+    .rect(
+      -10,
+      -scoreBoard.height - 10,
+      scoreBoard.width + 20,
+      scoreBoard.height + 10,
+    )
+    .fill({ color: 0xc0c0c0, alpha: 0.3 });
+  // add it **first** so it's behind other children
+  scoreBoard.addChildAt(bg, 0);
+
+  app.ticker.add(() => {
+    elapsedTimeSeconds = getElapsedTimeSeconds();
+    if (pieceCount != 0)
+      piecesTextLine.text = `${pieceCount},  ${(pieceCount / elapsedTimeSeconds).toFixed(2)}/S`;
+    timeTextLine.text = `${getElapsedTime()}`;
+    lineTextLine.text = `${lineCount}/ 40`;
+  });
   // ----------------------Initiliaze Board and Piece Arrays + Controls and Variables------------------------
   const M = 20;
   const N = 10;
@@ -262,6 +367,8 @@ import {
 
   // ----------------------Game Loop And Game Algo------------------------
   app.ticker.add((delta) => {
+    // update scoreboard variables:
+
     const time = delta.deltaTime / 60;
     timer += time;
     if (keys["ArrowDown"]) {
@@ -316,6 +423,7 @@ import {
         // let n = Math.floor(Math.random() * 7);
         let n = queue.shift();
         queue.push(Math.floor(Math.random() * 7));
+        pieceCount++;
         colorNum = n + 1;
         for (let i = 0; i < 4; i++) {
           a[i].x = (figures[n][i] % 2) + 4;
@@ -343,14 +451,16 @@ import {
         if (field[i][j]) count++;
         field[k][j] = field[i][j];
       }
-      if (count < N) k--;
+      if (count < N) {
+        k--;
+      } else {
+        lineCount++;
+      }
     }
 
     // check if game over?
     for (let i = 0; i < N; i++) {
-      console.log("hi");
       if (field[0][i]) {
-        console.log("stop");
         app.ticker.stop();
       }
     }

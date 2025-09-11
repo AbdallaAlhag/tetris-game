@@ -10,7 +10,8 @@ import {
   Graphics,
 } from "pixi.js";
 
-(async () => {
+// const game = (async () => {
+async function startGame() {
   // ----------------------Create App-------------------------
   const app = new Application();
   globalThis.__PIXI_APP__ = app;
@@ -29,21 +30,21 @@ import {
   console.log(`Base Url: ${BASEURL}`);
 
   // ----------------------Create Freeze Button-------------------------
-  const button = document.createElement("button");
-  button.addEventListener("click", () => {
-    app.ticker.stop();
-  });
-  button.textContent = "Freeze";
-  // quick styles
-  button.style.position = "absolute";
-  button.style.padding = "10px 20px";
-  button.style.backgroundColor = "#3498db";
-  button.style.color = "white";
-  button.style.border = "none";
-  button.style.borderRadius = "5px";
-  button.style.cursor = "pointer";
-  button.style.zIndex = "1000"; // higher than the Pixi canvas
-  document.body.appendChild(button);
+  // const button = document.createElement("button");
+  // button.addEventListener("click", () => {
+  //   app.ticker.stop();
+  // });
+  // button.textContent = "Freeze";
+  // // quick styles
+  // button.style.position = "absolute";
+  // button.style.padding = "10px 20px";
+  // button.style.backgroundColor = "#3498db";
+  // button.style.color = "white";
+  // button.style.border = "none";
+  // button.style.borderRadius = "5px";
+  // button.style.cursor = "pointer";
+  // button.style.zIndex = "1000"; // higher than the Pixi canvas
+  // document.body.appendChild(button);
 
   // ----------------------Create Main Background-------------------------
   const randomIndex = Math.floor(Math.random() * 6) + 1; // 1..7
@@ -125,8 +126,7 @@ import {
     fontSize: 36,
     align: "center",
     fill: "#ffffff",
-    stroke: "#000000",
-    strokeThickness: 2,
+    stroke: { color: "#000000", width: 2 },
   });
 
   let pieceCount = 0;
@@ -174,12 +174,13 @@ import {
   // add it **first** so it's behind other children
   scoreBoard.addChildAt(bg, 0);
 
-  app.ticker.add(() => {
+  function scoreBoardLoop() {
     textRefs["PIECES"].text =
       `${pieceCount}, ${(pieceCount / ((Date.now() - startTime) / 1000)).toFixed(2)}/S`;
     textRefs["LINES"].text = `${lineCount}/ 40`;
     textRefs["TIME"].text = getElapsedTime();
-  });
+  }
+  app.ticker.add(scoreBoardLoop);
   // ----------------------Initiliaze Board and Piece Arrays + Controls and Variables------------------------
   const M = 20;
   const N = 10;
@@ -345,7 +346,7 @@ import {
   updateNextBoard();
 
   // ----------------------Game Loop And Game Algo------------------------
-  app.ticker.add((delta) => {
+  function gameLoop(delta) {
     // update scoreboard variables:
 
     const time = delta.deltaTime / 60;
@@ -441,6 +442,8 @@ import {
     for (let i = 0; i < N; i++) {
       if (field[0][i]) {
         app.ticker.stop();
+        alert("Game Over. Press 'r' key anytime to reset game.");
+        break;
       }
     }
     // -----------------Drawing--------------------
@@ -482,5 +485,26 @@ import {
       board.addChild(tempSprite);
     }
     placeGhost();
+  }
+  app.ticker.add(gameLoop);
+  return {
+    reset() {
+      app.ticker.remove(scoreBoardLoop);
+      app.stage.removeChildren();
+      startGame();
+    },
+  };
+}
+// })();
+
+// kick it off
+(async () => {
+  const game = await startGame();
+
+  // later
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "r") {
+      game.reset();
+    }
   });
 })();

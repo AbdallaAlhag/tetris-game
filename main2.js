@@ -97,11 +97,11 @@ import {
   nextBoard.addChild(nextBoardBackgroundSprite);
   // nextBoard.pivot.set(0, nextBoard.height / 2);
   nextBoard.position.set(
-    app.screen.width / 2 + board.width / 2,
+    app.screen.width / 2 + board.width / 2 + 20,
     // app.screen.height / 3.25,
     boardOrigin.minY,
   );
-
+  // 856 target
   console.log(boardOrigin);
   // ----------------------Create Score Board------------------------
   // consist of piece per sec (x pieces, pieces/ s), lines(x/40), time(minutes(x): second(xx). milliseconds(xxx)).
@@ -117,14 +117,6 @@ import {
 
     return `${minutes}:${String(seconds).padStart(2, "0")}.${String(milliseconds).padStart(3, "0")}`;
   }
-  function getElapsedTimeSeconds() {
-    const now = Date.now();
-    const elapsed = now - startTime; // milliseconds passed
-
-    const seconds = Math.floor((elapsed % 60000) / 1000);
-    return seconds;
-  }
-
   const scoreBoard = new Container();
   app.stage.addChild(scoreBoard);
 
@@ -133,55 +125,43 @@ import {
     fontSize: 36,
     align: "center",
     fill: "#ffffff",
+    stroke: "#000000",
+    strokeThickness: 2,
   });
 
   let pieceCount = 0;
   let lineCount = 0;
   let startTime = Date.now();
   let elapsedTimeSeconds = 0;
-  const piecesText = new Text({
-    text: "PIECES",
-    style: style,
-  });
-  const piecesTextLine = new Text({
-    text: `${pieceCount},  0.00/S`,
-    style: style,
-  });
 
-  const lineText = new Text({
-    text: "LINES",
-    style: style,
-  });
-  const lineTextLine = new Text({
-    text: `${lineCount}/ 40`,
-    style: style,
-  });
-  const timeText = new Text({
-    text: "TIME",
-    style: style,
-  });
-  const timeTextLine = new Text({
-    text: `${getElapsedTime()}`,
-    style: style,
-  });
+  const scoreBoardRow = [
+    {
+      label: "PIECES",
+      value: () =>
+        `${pieceCount},  ${(pieceCount / elapsedTimeSeconds).toFixed(2)}/S`,
+    },
+    { label: "LINES", value: () => `${lineCount}/ 40` },
+    { label: "TIME", value: () => getElapsedTime() },
+  ];
 
-  scoreBoard.addChild(piecesText);
-  piecesText.position.y -= 240;
+  let scoreBoardY = -240;
+  const spacing = 40;
+  const textRefs = {};
+  for (const row of scoreBoardRow) {
+    const label = new Text({ text: row.label, style });
+    label.position.y = scoreBoardY;
+    scoreBoard.addChild(label);
 
-  scoreBoard.addChild(piecesTextLine);
-  piecesTextLine.position.y -= 200;
-  scoreBoard.addChild(lineText);
-  lineText.position.y -= 160;
-  scoreBoard.addChild(lineTextLine);
-  lineTextLine.position.y -= 120;
-  scoreBoard.addChild(timeText);
-  timeText.position.y -= 80;
-  scoreBoard.addChild(timeTextLine);
-  timeTextLine.position.y -= 40;
-  scoreBoard.position.set(
-    boardOrigin.minX - scoreBoard.width - 10,
-    boardOrigin.maxY,
-  );
+    const value = new Text({ text: row.value(), style });
+    value.position.y = scoreBoardY + spacing;
+    scoreBoard.addChild(value);
+
+    textRefs[row.label] = value;
+    // so  textRefs[LINES] = [`{linecount} / 40`];
+    scoreBoardY += spacing * 2;
+  }
+
+  scoreBoard.position.set(boardOrigin.maxX + 30, boardOrigin.maxY);
 
   const bg = new Graphics()
     .rect(
@@ -195,11 +175,10 @@ import {
   scoreBoard.addChildAt(bg, 0);
 
   app.ticker.add(() => {
-    elapsedTimeSeconds = getElapsedTimeSeconds();
-    if (pieceCount != 0)
-      piecesTextLine.text = `${pieceCount},  ${(pieceCount / elapsedTimeSeconds).toFixed(2)}/S`;
-    timeTextLine.text = `${getElapsedTime()}`;
-    lineTextLine.text = `${lineCount}/ 40`;
+    textRefs["PIECES"].text =
+      `${pieceCount}, ${(pieceCount / ((Date.now() - startTime) / 1000)).toFixed(2)}/S`;
+    textRefs["LINES"].text = `${lineCount}/ 40`;
+    textRefs["TIME"].text = getElapsedTime();
   });
   // ----------------------Initiliaze Board and Piece Arrays + Controls and Variables------------------------
   const M = 20;
